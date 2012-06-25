@@ -29,7 +29,18 @@
 // * std::function
 // * Boost type-traits
 // * std::result_of for computed return types
-// 
+
+
+template<typename T>
+void check_equal( const char* FILE, int line, const T& lhs, const T& rhs )
+{
+    if ( lhs != rhs )
+    {
+        std::cerr << "Assertion Failure: (" << FILE << ", " << line << "): " << lhs << " != " << rhs << std::endl;
+    }
+}
+
+#define CHECK_EQUAL( lhs, rhs ) check_equal( __FILE__, __LINE__, (lhs), (rhs) )
 
 struct T1
 {
@@ -101,27 +112,45 @@ namespace t4
 
 int main( int argc, char* argv[] )
 {
-    std::cout << "Hello world" << std::endl;
-    
     // Extended initialiser lists. Hurray. Uses initialiser list constructor.
     std::vector<int> test1 = { 4, 5, 6, 0, 1, 2, 3, 7, 8, 9 };
+    
+    CHECK_EQUAL( test1.size(), 10UL );
     
     // Type inference
     for ( auto it = test1.begin(); it != test1.end(); it++ )
     {
         // Same type as.
-        decltype(it) it2 = it;
-        
+        decltype(it) it2 = it; 
     }
+    
+    // A fold
+    int folded = std::accumulate( test1.begin(), test1.end(), 4, [](const int& lhs, const int& rhs) { return lhs + rhs; } );
+    CHECK_EQUAL( folded, 49 );
     
     // Range-based for loop
-    for ( int& x : test1 )
-    {
-        // Do something with x
-    }
+    int acc = 4;
+    for ( int& x : test1 ) { acc += x; }
+    CHECK_EQUAL( acc, 49 );
+    
+    // Sort with a local lambda
+    std::sort( test1.begin(), test1.end(), []( const int& lhs, const int& rhs ) { return lhs < rhs; } );
+    
+    // A zip function would be great here...
+    CHECK_EQUAL( test1[0], 0 );
+    CHECK_EQUAL( test1[1], 1 );
+    CHECK_EQUAL( test1[2], 2 );
+    
+    std::sort( test1.begin(), test1.end(), []( const int& lhs, const int& rhs ) { return lhs > rhs; } );
+    CHECK_EQUAL( test1[0], 9 );
+    CHECK_EQUAL( test1[1], 8 );
+    CHECK_EQUAL( test1[2], 7 );
     
     // The return type is implicit (void here)
-    std::for_each( test1.begin(), test1.end(), []( int& b ) { b += 1; } );
+    std::for_each( test1.begin(), test1.end(), []( int& b ) { b *= b; } );
+    CHECK_EQUAL( test1[0], 81 );
+    CHECK_EQUAL( test1[1], 64 );
+    CHECK_EQUAL( test1[2], 49 );
 }
 
 
