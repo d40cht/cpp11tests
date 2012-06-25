@@ -146,11 +146,16 @@ int main( int argc, char* argv[] )
     CHECK_EQUAL( test1[1], 8 );
     CHECK_EQUAL( test1[2], 7 );
     
-    // The return type is implicit (void here)
-    std::for_each( test1.begin(), test1.end(), []( int& b ) { b *= b; } );
+    // A named local lambda
+    auto squareFn = []( int v ) { return v * v; };
+    
+    // Capture a local variable (squareFn) before calculation. Lambda lifting.
+    std::for_each( test1.begin(), test1.end(), [squareFn]( int& v ){ v = squareFn(v); } );
     CHECK_EQUAL( test1[0], 81 );
     CHECK_EQUAL( test1[1], 64 );
     CHECK_EQUAL( test1[2], 49 );
+    
+    
 }
 
 
