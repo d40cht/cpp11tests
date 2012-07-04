@@ -126,7 +126,8 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
     return container_wrapper<type_data_t>( type_data_t(container) );
 }
 
-
+// TODO: fwrap construction currently takes a copy. Add additional set of types
+// that wrap using a reference but build into new containers
 
 
 void test()
