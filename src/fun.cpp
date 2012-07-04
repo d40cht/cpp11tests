@@ -96,6 +96,17 @@ struct container_wrapper
         
         return self_t( res );
     }
+    
+    template<typename res_t>
+    res_t foldLeft( res_t acc, std::function<res_t(const res_t&, const typename container_data::el_t&)> fn )
+    {
+        for ( auto v : m_data.m_container )
+        {
+            acc = fn(acc, v);
+        }
+        
+        return acc;
+    }
 };
 
 
@@ -127,6 +138,12 @@ void test()
         .map<int>( []( const int& v ) { return v+1; } )
         .map<double>( []( const int&v ) { return v * 1.5; } )
         .sort( []( const double& l, const double& r ) { return l < r; } );
+        
+    //auto wb = fwrap(a).toSet();
+        
+    double sum = wa.foldLeft<double>(0.0, []( const double& l, const double& r ) { return l + r; } );
+    
+    double max = wa.foldLeft<double>(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
     auto sa = fwrap(s).map<double>( []( const int& v ) { return v * 3.0; } );
     
