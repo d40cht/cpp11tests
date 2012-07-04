@@ -6,97 +6,131 @@
 #include <algorithm>
 #include <functional>
 
-template<class ContainerType>
-class Builder
+template<typename ElT, typename AllocT>
+struct vector_data
 {
+    typedef ElT el_t;
+    typedef std::vector<ElT, AllocT> container_t;
+    
+    template<typename OtherElT> struct other_t
+    {
+        typedef vector_data<OtherElT, std::allocator<OtherElT>> type;
+    };
+    
+    vector_data()
+    {
+    }
+    
+    vector_data( const container_t& container ) : m_container( container )
+    {
+    }
+    
+    void add( const el_t& el )
+    {
+        m_container.push_back( el );
+    }
+    
+    container_t m_container;
 };
 
-template<typename ElType, typename AllocT>
-class Builder<std::vector<ElType, AllocT>>
+template<typename ElT, typename CompareT, typename AllocT>
+struct set_data
 {
-public:
-    void add( const ElType& el )
+    typedef ElT el_t;
+    typedef std::set<ElT, CompareT, AllocT> container_t;
+    
+    template<typename OtherElT> struct other_t
     {
-        m_data.push_back(el);
+        typedef set_data<OtherElT, std::less<OtherElT>, std::allocator<OtherElT>> type;
+    };
+    
+    set_data()
+    {
     }
     
-    std::vector<ElType, AllocT>& get() { return m_data; }
-
-private:
-    std::vector<ElType, AllocT> m_data;
+    set_data( const container_t& container ) : m_container( container )
+    {
+    }
+    
+    void add( const el_t& el )
+    {
+        m_container.insert( el );
+    }
+    
+    container_t m_container;
 };
 
-template<typename ElType>
-class Builder<std::set<ElType>>
+
+template<typename container_data>
+struct container_wrapper
 {
-public:
-    void add( const ElType& el )
+    typedef container_wrapper<container_data> self_t;
+    
+    container_wrapper( container_data data ) : m_data(data)
     {
-        m_data.insert(el);
     }
     
-    std::set<ElType>& get() { return m_data; }
-
-private:
-    std::set<ElType> m_data;
+    container_data m_data;
+    
+    template<typename res_t>
+    auto map( std::function<res_t( const typename container_data::el_t& )> fn ) ->
+        container_wrapper<typename container_data::template other_t<res_t>::type>
+    {
+        typedef typename container_data::template other_t<res_t>::type res_t;
+        
+        res_t res;
+        
+        for ( auto v : m_data.m_container )
+        {
+            res.add( fn(v) );
+        }
+        
+        return container_wrapper<res_t>( res );
+    }
+    
+    self_t sort( std::function<bool(const typename container_data::el_t&, const typename container_data::el_t&)> fn )
+    {
+        container_data res;
+        for ( auto v : m_data.m_container ) res.add(v);
+        std::sort( res.m_container.begin(), res.m_container.end(), fn );
+        
+        return self_t( res );
+    }
 };
 
-template<typename InEl, typename OutEl>
-std::vector<OutEl> fmap( const std::vector<InEl>& container, std::function<OutEl(const InEl&)> fn )
+
+template<typename ElT, typename AllocT>
+container_wrapper<vector_data<ElT, AllocT>> fwrap( std::vector<ElT, AllocT>& container )
 {
-    Builder<std::vector<OutEl>> res;
+    typedef vector_data<ElT, AllocT> type_data_t;
     
-    for ( auto v : container )
-    {
-        res.add( fn(v) );
-    }
-    
-    return res.get();
+    return container_wrapper<type_data_t>( type_data_t(container) );
 }
 
-template<typename ElT>
-std::vector<ElT> fsort( const std::vector<ElT>& container, std::function<bool(const ElT&, const ElT&)> ordFn )
+template<typename ElT, typename CompareT, typename AllocT>
+container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT, AllocT>& container )
 {
-    Builder<std::vector<ElT>> res;
-    for ( auto v : container ) res.add(v);
-
-    std::sort( res.get().begin(), res.get().end(), ordFn );
+    typedef set_data<ElT, CompareT, AllocT> type_data_t;
     
-    return res.get();
+    return container_wrapper<type_data_t>( type_data_t(container) );
 }
 
-template<typename In, typename Out>
-Out apply( std::function<Out(In)> fn, In val ) { return fn(val); }
 
-template<template<class, class> class Container, typename ElType, typename AllocT>
-Container<std::string, AllocT> toString( const Container<ElType, AllocT>& inp )
-{
-    Builder<Container<std::string, AllocT>> res;
-    for ( auto v : inp )
-    {
-        res.add( std::string("ook") );
-    }
-    
-    return res.get();
-}
 
 
 void test()
 {
-
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
+    std::set<int> s = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     
-    auto z1 = apply<int, int>( []( int q ) { return q+1; }, 12 );
-    auto z2 = apply<int, double>( []( int q ) { return q * 1.5; }, 12 );
+    auto wa = fwrap(a)
+        .map<int>( []( const int& v ) { return v+1; } )
+        .map<double>( []( const int&v ) { return v * 1.5; } )
+        .sort( []( const double& l, const double& r ) { return l < r; } );
+        
+    auto sa = fwrap(s).map<double>( []( const int& v ) { return v * 3.0; } );
     
-    Builder<std::vector<double>> b1;
-    Builder<std::set<double>> b2;
-    b1.add(1.0);
-    b2.add(3.0);
     
-    auto ooks = toString(a);
-
-    auto b = fmap<int, double>( a, []( const int& v ) { return v*2.0; } );
-    auto c = fsort<double>( b, []( const double& x, const double& y ){ return x < y; } );
 }
+
 
