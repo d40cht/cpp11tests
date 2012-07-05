@@ -181,6 +181,19 @@ void otherTests()
     double acc = 0.0;
     for ( auto v : IterRange(10, 20) ) acc += v;
     CHECK_EQUAL( acc, 145.0 );
+    
+    auto viewSum = fwrap(values).toView()
+        .filter( []( const double& v ) { return v >= 8.0; } )
+        .map( []( const double& v ) { return v * 3.0; } )
+        .foldLeft(0.0, []( const double& acc, const double& v ) { return acc+v; } );
+        
+    auto nonViewSum = fwrap(values)
+        .filter( []( const double& v ) { return v >= 8.0; } )
+        .map( []( const double& v ) { return v * 3.0; } )
+        .foldLeft(0.0, []( const double& acc, const double& v ) { return acc+v; } );
+        
+    CHECK_EQUAL( viewSum, 147.0 );
+    CHECK_EQUAL( nonViewSum, 147.0 );
 }
 
 int main( int argc, char* argv[] )
