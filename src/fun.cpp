@@ -124,6 +124,15 @@ struct container_wrapper
         return self_t( res );
     }
     
+    template<typename Functor>
+    self_t filter( Functor fn )
+    {
+        container_data res;
+        for ( auto v : m_data.m_container ) if (fn(v)) res.add(v);
+        
+        return self_t( res );
+    }
+    
     template<typename res_t, typename Functor>
     res_t foldLeft( res_t acc, Functor fn )
     {
@@ -196,7 +205,7 @@ void test()
     double sum = wa.foldLeft(0.0, []( const double& l, const double& r ) { return l + r; } );
     double max = wa.foldLeft(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
-    auto sa = fwrap(s).map( []( const int& v ) { return v * 3.0; } );
+    auto sa = fwrap(s).map( []( const int& v ) { return v * 3.0; } ).filter( [](const double& v) { return v > 10.0; } );
     
     
 }
