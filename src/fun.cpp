@@ -129,6 +129,8 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
 // TODO: fwrap construction currently takes a copy. Add additional set of types
 // that wrap using a reference but build into new containers
 
+// filter, iterator views making lazy expression chains etc.
+
 
 void test()
 {
