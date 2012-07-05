@@ -133,11 +133,54 @@ void meanMedian()
     CHECK_EQUAL( mean, 6.0 );
 }
 
+class IterRange
+{
+    class iterator
+    {
+    public:
+        iterator(int value) : m_value(value)
+        {
+        }
+        
+        iterator& operator++()
+        {
+            m_value++;
+            return *this;
+        }
+        
+        int operator*()
+        {
+            return m_value;
+        }
+        
+        bool operator==( const iterator& other ) { return m_value == other.m_value; }
+        bool operator!=( const iterator& other ) { return m_value != other.m_value; }
+        
+    private:
+        int m_value;
+    };
+    
+public:
+    IterRange( int start, int end ) : m_start(start), m_end(end)
+    {
+    }
+    
+    iterator begin() { return iterator(m_start); }
+    iterator end() { return iterator(m_end); }
+
+private:
+    int m_start, m_end;
+};
+
 void otherTests()
 {
     std::vector<double> values = { 6.0, 6.0, 3.0, 4.0, 5.0, 8.0, 9.0, 6.0, 4.0, 10.0, 22.0, 5.0 };
     
     CHECK_EQUAL( fwrap(values).toSet().mkString(";"), std::string("3;4;5;6;8;9;10;22") );
+    
+    double acc = 0.0;
+    for ( auto v : IterRange(10, 20) ) acc += v;
+    CHECK_EQUAL( acc, 145.0 );
 }
 
 int main( int argc, char* argv[] )

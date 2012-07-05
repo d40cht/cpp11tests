@@ -37,6 +37,7 @@ struct list_data
     container_t m_container;
 };
 
+
 template<typename ElT, typename AllocT>
 struct vector_data
 {
