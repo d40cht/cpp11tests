@@ -1,11 +1,39 @@
 #include "fun.hpp"
 
 #include <set>
+#include <list>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <functional>
 #include <type_traits>
+
+template<typename ElT, typename AllocT>
+struct list_data
+{
+    typedef ElT el_t;
+    typedef std::list<ElT, AllocT> container_t;
+    
+    template<typename OtherElT> struct other_t
+    {
+        typedef list_data<OtherElT, std::allocator<OtherElT>> type;
+    };
+    
+    list_data()
+    {
+    }
+    
+    list_data( const container_t& container ) : m_container( container )
+    {
+    }
+    
+    void add( const el_t& el )
+    {
+        m_container.push_back( el );
+    }
+    
+    container_t m_container;
+};
 
 template<typename ElT, typename AllocT>
 struct vector_data
@@ -66,6 +94,7 @@ template<typename container_data>
 struct container_wrapper
 {
     typedef container_wrapper<container_data> self_t;
+    typedef typename container_data::el_t el_t;
     
     container_wrapper( container_data data ) : m_data(data)
     {
@@ -143,8 +172,54 @@ struct container_wrapper
         
         return acc;
     }
+    
+    container_wrapper<set_data<el_t, std::less<el_t>, std::allocator<el_t>>> toSet()
+    {
+        typedef set_data<el_t, std::less<el_t>, std::allocator<el_t>> res_t;
+        
+        res_t res;
+        for ( auto v : m_data.m_container )
+        {
+            res.add(v);
+        }
+        
+        return container_wrapper<res_t>(res);
+    }
+    
+    container_wrapper<vector_data<el_t, std::allocator<el_t>>> toVector()
+    {
+        typedef vector_data<el_t, std::allocator<el_t>> res_t;
+        
+        res_t res;
+        for ( auto v : m_data.m_container )
+        {
+            res.add(v);
+        }
+        
+        return container_wrapper<res_t>(res);
+    }
+    
+    container_wrapper<list_data<el_t, std::allocator<el_t>>> toList()
+    {
+        typedef list_data<el_t, std::allocator<el_t>> res_t;
+        
+        res_t res;
+        for ( auto v : m_data.m_container )
+        {
+            res.add(v);
+        }
+        
+        return container_wrapper<res_t>(res);
+    }
 };
 
+template<typename ElT, typename AllocT>
+container_wrapper<list_data<ElT, AllocT>> fwrap( std::list<ElT, AllocT>& container )
+{
+    typedef list_data<ElT, AllocT> type_data_t;
+    
+    return container_wrapper<type_data_t>( type_data_t(container) );
+}
 
 template<typename ElT, typename AllocT>
 container_wrapper<vector_data<ElT, AllocT>> fwrap( std::vector<ElT, AllocT>& container )
@@ -166,7 +241,7 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
 // that wrap using a reference but build into new containers
 
 // filter, reverse, iterator views making lazy expression chains etc.
-// toList, toSet, groupBy, unique etc.
+// toList, toSet, groupBy, unique, slice etc.
 
 
 template<typename InT, typename Functor>
@@ -186,26 +261,23 @@ void test()
 {
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::set<int> s = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
+    std::list<int> l = { 4, 3, 1, 6, 7, 5, 10 };
     
-    double blah = unary_apply( 2, []( int v ) { return 3.0 * v; } );
+    auto listO = fwrap(l).toSet().toList();
     
-    auto fn = []( int v ) { return 3.0 * v; };
+    auto orderedUnique = fwrap(a).toSet().toVector();
     
-    typedef decltype(fn) lambda_t;
-    decltype(fn( std::declval<int>() )) blah2 = 3.0;
-    decltype(std::declval<lambda_t>()( std::declval<int>() )) blah3 = 4.0;
-
     auto wa = fwrap(a)
         .map( []( const int& v ) { return v+1; } )
         .map( []( const int& v ) { return v * 1.5; } )
         .sort( []( const double& l, const double& r ) { return l < r; } );
         
-    //auto wb = fwrap(a).toSet();
-        
     double sum = wa.foldLeft(0.0, []( const double& l, const double& r ) { return l + r; } );
     double max = wa.foldLeft(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
-    auto sa = fwrap(s).map( []( const int& v ) { return v * 3.0; } ).filter( [](const double& v) { return v > 10.0; } );
+    auto sa = fwrap(s)
+        .map( []( const int& v ) { return v * 3.0; } )
+        .filter( [](const double& v) { return v > 10.0; } );
     
     
 }
