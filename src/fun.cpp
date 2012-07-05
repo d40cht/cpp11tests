@@ -1,21 +1,6 @@
 #include "fun.hpp"
 
 
-
-void meanMedian()
-{
-    std::vector<double> values = { 3.0, 4.0, 1.0, 2.0, 3.0, 6.0, 7.0, 4.0, 2.0, 8.0 };
-    
-    int n = values.size();
-    
-    auto res = fwrap(values)
-        .sort( []( const double& lhs, const double& rhs ) { return lhs < rhs; } )
-        .zipWithIndex()
-        .filter( [n]( const std::pair<double, int>& v ) { return v.second > n/4 && v.second < 3*(n/4); } )
-        .map( []( const std::pair<double, int>& v ) { return v.first; } )
-        .foldLeft(0.0, [n]( const double& acc, const double& v ) { return acc + v/static_cast<double>(n); } );
-}
-
 void test()
 {
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };

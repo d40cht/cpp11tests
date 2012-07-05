@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "fun.hpp"
+
 // COMPILER CHANGES
 //
 // * R-value references
@@ -110,6 +112,34 @@ namespace t4
     };
 }
 
+void meanMedian()
+{
+    std::vector<double> values = { 6.0, 6.0, 3.0, 4.0, 5.0, 8.0, 9.0, 6.0, 4.0, 10.0, 22.0, 5.0 };
+    
+    int n = values.size();
+    
+    auto sorted = fwrap(values)
+        .sort( []( const double& lhs, const double& rhs ) { return lhs < rhs; } );
+        
+    auto sliced = sorted
+        .zipWithIndex()
+        .filter( [n]( const std::pair<double, int>& v ) { return v.second >= n/4 && v.second < 3*(n/4); } )
+        .map( []( const std::pair<double, int>& v ) { return v.first; } );
+
+    int weight = static_cast<double>( sliced.size() );
+    auto mean = sliced
+        .foldLeft(0.0, [weight]( const double& acc, const double& v ) { return acc + v/weight; } );
+        
+    CHECK_EQUAL( mean, 6.0 );
+}
+
+void otherTests()
+{
+    std::vector<double> values = { 6.0, 6.0, 3.0, 4.0, 5.0, 8.0, 9.0, 6.0, 4.0, 10.0, 22.0, 5.0 };
+    
+    CHECK_EQUAL( fwrap(values).toSet().mkString(";"), std::string("3;4;5;6;8;9;10;22") );
+}
+
 int main( int argc, char* argv[] )
 {
     // Extended initialiser lists. Hurray. Uses initialiser list constructor.
@@ -155,7 +185,8 @@ int main( int argc, char* argv[] )
     CHECK_EQUAL( test1[1], 64 );
     CHECK_EQUAL( test1[2], 49 );
     
-    
+    meanMedian();
+    otherTests();   
 }
 
 

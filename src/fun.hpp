@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <type_traits>
+#include <sstream>
 
 template<typename ElT, typename AllocT>
 struct list_data
@@ -198,6 +199,20 @@ struct container_wrapper
         return self_t( res );
     }
     
+    std::string mkString( const std::string& sep )
+    {
+        std::stringstream res;
+        bool init = true;
+        for ( auto v : m_data.m_container )
+        {
+            if ( !init ) res << sep;
+            init = false;
+            res << v;
+        }
+        
+        return res.str();
+    }
+    
     self_t unique()
     {
         typedef set_data<el_t, std::less<el_t>, std::allocator<el_t>> res_t;
@@ -246,6 +261,8 @@ struct container_wrapper
         
         return container_wrapper<res_t>(res);
     }
+    
+    const size_t size() const { return m_data.m_container.size(); }
     
     /*container_wrapper<map_data<el_t, std::less<typename el_t::first_type>, std::allocator<el_t>>> toMap()
     {
