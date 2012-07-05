@@ -30,6 +30,9 @@ struct vector_data
         m_container.push_back( el );
     }
     
+    el_t& first() { return m_container.front(); }
+    el_t& last() { return m_container.back(); }
+    
     container_t m_container;
 };
 
@@ -57,6 +60,9 @@ struct set_data
         m_container.insert( el );
     }
     
+    el_t& first() { return m_container.front(); }
+    el_t& last() { return m_container.back(); }
+    
     container_t m_container;
 };
 
@@ -72,7 +78,7 @@ struct container_wrapper
     
     container_data m_data;
     
-    template<typename res_t>
+    /*template<typename res_t>
     auto map( std::function<res_t( const typename container_data::el_t& )> fn ) ->
         container_wrapper<typename container_data::template other_t<res_t>::type>
     {
@@ -86,9 +92,26 @@ struct container_wrapper
         }
         
         return container_wrapper<res_t>( res );
+    }*/
+    
+    // http://stackoverflow.com/questions/11344063/c11-type-inference-with-lambda-and-stdfunction
+    template<typename Functor>
+    container_wrapper<container_data::other_t<decltype( fn(m_data.first()) )>::type> map( Functor fn )
+    {
+        typedef container_wrapper<container_data::other_t<decltype( fn(m_data.first()) )>::type> res_t;
+        
+        res_t res;
+        
+        for ( auto v : m_data.m_container )
+        {
+            res.add( fn(v) );
+        }
+        
+        return container_wrapper<res_t>( res );
     }
     
-    self_t sort( std::function<bool(const typename container_data::el_t&, const typename container_data::el_t&)> fn )
+    template<typename Functor>
+    self_t sort( Functor fn )
     {
         container_data res;
         for ( auto v : m_data.m_container ) res.add(v);
@@ -97,8 +120,8 @@ struct container_wrapper
         return self_t( res );
     }
     
-    template<typename res_t>
-    res_t foldLeft( res_t acc, std::function<res_t(const res_t&, const typename container_data::el_t&)> fn )
+    template<typename res_t, typename Functor>
+    res_t foldLeft( res_t acc, Functor fn )
     {
         for ( auto v : m_data.m_container )
         {
@@ -133,14 +156,24 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
 // toList, toSet, groupBy etc.
 
 
+template<typename InT, typename Functor>
+auto unary_apply( InT val, Functor fn ) -> decltype(fn(val))
+{
+    return fn(val);
+}
+
 void test()
 {
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::set<int> s = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     
+    double blah = unary_apply( 2, []( int v ) { return 3.0 * v; } );
+    
     auto wa = fwrap(a)
-        .map<int>( []( const int& v ) { return v+1; } )
-        .map<double>( []( const int&v ) { return v * 1.5; } )
+        .map( []( const int& v ) { return v+1; } );
+    /*auto wa = fwrap(a)
+        .map( []( const int& v ) { return v+1; } )
+        .map( []( const int& v ) { return v * 1.5; } )
         .sort( []( const double& l, const double& r ) { return l < r; } );
         
     //auto wb = fwrap(a).toSet();
@@ -149,7 +182,7 @@ void test()
     
     double max = wa.foldLeft<double>(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
-    auto sa = fwrap(s).map<double>( []( const int& v ) { return v * 3.0; } );
+    auto sa = fwrap(s).map<double>( []( const int& v ) { return v * 3.0; } );*/
     
     
 }
