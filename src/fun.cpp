@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <type_traits>
 
 template<typename ElT, typename AllocT>
 struct vector_data
@@ -29,9 +30,6 @@ struct vector_data
     {
         m_container.push_back( el );
     }
-    
-    el_t& first() { return m_container.front(); }
-    el_t& last() { return m_container.back(); }
     
     container_t m_container;
 };
@@ -59,9 +57,6 @@ struct set_data
     {
         m_container.insert( el );
     }
-    
-    el_t& first() { return m_container.front(); }
-    el_t& last() { return m_container.back(); }
     
     container_t m_container;
 };
@@ -95,19 +90,28 @@ struct container_wrapper
     }*/
     
     // http://stackoverflow.com/questions/11344063/c11-type-inference-with-lambda-and-stdfunction
+    
     template<typename Functor>
-    container_wrapper<container_data::other_t<decltype( fn(m_data.first()) )>::type> map( Functor fn )
+    struct map_ret_type_helper
     {
-        typedef container_wrapper<container_data::other_t<decltype( fn(m_data.first()) )>::type> res_t;
+        typedef decltype(std::declval<Functor>()( std::declval<typename container_data::el_t>() )) functorRet_t;
+        typedef typename container_data::template other_t<functorRet_t>::type resContainerData_t;
+        typedef container_wrapper<resContainerData_t> res_t;
+    };
+    
+    template<typename Functor>
+    typename map_ret_type_helper<Functor>::res_t map( Functor fn )
+    {
+        typedef typename map_ret_type_helper<Functor>::resContainerData_t resContainerData_t;
         
-        res_t res;
+        resContainerData_t res;
         
         for ( auto v : m_data.m_container )
         {
             res.add( fn(v) );
         }
         
-        return container_wrapper<res_t>( res );
+        return container_wrapper<resContainerData_t>( res );
     }
     
     template<typename Functor>
@@ -162,6 +166,13 @@ auto unary_apply( InT val, Functor fn ) -> decltype(fn(val))
     return fn(val);
 }
 
+
+class BoomT
+{
+public:
+    double operator()( const int& v ) { return 3.0 * v; }
+};
+
 void test()
 {
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
@@ -169,20 +180,23 @@ void test()
     
     double blah = unary_apply( 2, []( int v ) { return 3.0 * v; } );
     
+    auto fn = []( int v ) { return 3.0 * v; };
+    
+    typedef decltype(fn) lambda_t;
+    decltype(fn( std::declval<int>() )) blah2 = 3.0;
+    decltype(std::declval<lambda_t>()( std::declval<int>() )) blah3 = 4.0;
+
     auto wa = fwrap(a)
-        .map( []( const int& v ) { return v+1; } );
-    /*auto wa = fwrap(a)
         .map( []( const int& v ) { return v+1; } )
         .map( []( const int& v ) { return v * 1.5; } )
         .sort( []( const double& l, const double& r ) { return l < r; } );
         
     //auto wb = fwrap(a).toSet();
         
-    double sum = wa.foldLeft<double>(0.0, []( const double& l, const double& r ) { return l + r; } );
-    
-    double max = wa.foldLeft<double>(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
+    double sum = wa.foldLeft(0.0, []( const double& l, const double& r ) { return l + r; } );
+    double max = wa.foldLeft(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
-    auto sa = fwrap(s).map<double>( []( const int& v ) { return v * 3.0; } );*/
+    auto sa = fwrap(s).map( []( const int& v ) { return v * 3.0; } );
     
     
 }
