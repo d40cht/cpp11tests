@@ -1,6 +1,7 @@
 #include "fun.hpp"
 
 #include <set>
+#include <map>
 #include <list>
 #include <string>
 #include <vector>
@@ -78,6 +79,36 @@ struct set_data
     }
     
     set_data( const container_t& container ) : m_container( container )
+    {
+    }
+    
+    void add( const el_t& el )
+    {
+        m_container.insert( el );
+    }
+    
+    container_t m_container;
+};
+
+template<typename ElT, typename CompareT, typename AllocT>
+struct map_data
+{
+    typedef ElT el_t;
+    typedef typename ElT::first_type key_t;
+    typedef typename ElT::second_type value_t;
+    
+    typedef std::map<key_t, value_t, CompareT, AllocT> container_t;
+    
+    template<typename OtherElT> struct other_t
+    {
+        typedef map_data<OtherElT, std::less<typename OtherElT::first_type>, std::allocator<OtherElT>> type;
+    };
+    
+    map_data()
+    {
+    }
+    
+    map_data( const container_t& container ) : m_container( container )
     {
     }
     
@@ -186,6 +217,19 @@ struct container_wrapper
         return container_wrapper<res_t>(res);
     }
     
+    /*container_wrapper<map_data<el_t, std::less<typename el_t::first_type>, std::allocator<el_t>>> toMap()
+    {
+        typedef map_data<el_t, std::less<typename el_t::first_type>, std::allocator<el_t>> res_t;
+        
+        res_t res;
+        for ( auto v : m_data.m_container )
+        {
+            res.add(v);
+        }
+        
+        return container_wrapper<res_t>(res);
+    }*/
+    
     container_wrapper<vector_data<el_t, std::allocator<el_t>>> toVector()
     {
         typedef vector_data<el_t, std::allocator<el_t>> res_t;
@@ -237,6 +281,14 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
     return container_wrapper<type_data_t>( type_data_t(container) );
 }
 
+template<typename KeyT, typename ValueT, typename CompareT, typename AllocT>
+container_wrapper<map_data<std::pair<KeyT, ValueT>, CompareT, AllocT>> fwrap( std::map<KeyT, ValueT, CompareT, AllocT>& container )
+{
+    typedef map_data<std::pair<KeyT, ValueT>, CompareT, AllocT> type_data_t;
+    
+    return container_wrapper<type_data_t>( type_data_t(container) );
+}
+
 // TODO: fwrap construction currently takes a copy. Add additional set of types
 // that wrap using a reference but build into new containers
 
@@ -262,6 +314,22 @@ void test()
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::set<int> s = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::list<int> l = { 4, 3, 1, 6, 7, 5, 10 };
+    
+    std::map<int, double> mo = { {1, 2.0}, {2, 3.0}, {4, 5.0}, {6, 7.0}, {8, 9.0} };
+    std::list<std::pair<int, double>> lo = { {1, 2.0}, {2, 3.0}, {4, 5.0}, {6, 7.0}, {8, 9.0} };
+    
+    auto pairList = fwrap(lo);
+    auto mapO = fwrap(mo);
+    
+    // Currently not possible as requires a container of pairs and that's not always the case
+    //auto genMap = pairList.toMap();
+    
+    auto reverseAssoc = mapO
+        .map( []( const std::pair<int, double>& v ){ return std::make_pair( v.second, v.first ); } )
+        .toVector()
+        .map( []( const std::pair<double, int>& v ){ return v.second; } );
+    
+    
     
     auto listO = fwrap(l).toSet().toList();
     
