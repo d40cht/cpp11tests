@@ -130,7 +130,7 @@ container_wrapper<set_data<ElT, CompareT, AllocT>> fwrap( std::set<ElT, CompareT
 // that wrap using a reference but build into new containers
 
 // filter, reverse, iterator views making lazy expression chains etc.
-// toList, toSet, groupBy etc.
+// toList, toSet, groupBy, unique etc.
 
 
 void test()
