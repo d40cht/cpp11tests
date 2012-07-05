@@ -174,12 +174,42 @@ struct container_wrapper
         return container_wrapper<resContainerData_t>( res );
     }
     
+    container_wrapper<typename container_data::template other_t<std::pair<el_t, int>>::type> zipWithIndex()
+    {
+        typedef typename container_data::template other_t<std::pair<el_t, int>>::type resContainerData_t;
+        
+        int i = 0;
+        resContainerData_t res;
+        for ( auto v : m_data.m_container )
+        {
+            res.add( std::make_pair( v, i++ ) );
+        }
+        
+        return container_wrapper<resContainerData_t>( res );
+    }
+    
     template<typename Functor>
     self_t sort( Functor fn )
     {
         container_data res;
         for ( auto v : m_data.m_container ) res.add(v);
         std::sort( res.m_container.begin(), res.m_container.end(), fn );
+        
+        return self_t( res );
+    }
+    
+    self_t unique()
+    {
+        typedef set_data<el_t, std::less<el_t>, std::allocator<el_t>> res_t;
+        
+        res_t resSet;
+        for ( auto v : m_data.m_container )
+        {
+            resSet.add(v);
+        }
+        
+        container_data res;
+        for ( auto v : resSet.m_container ) res.add(v);
         
         return self_t( res );
     }
@@ -290,10 +320,10 @@ container_wrapper<map_data<std::pair<KeyT, ValueT>, CompareT, AllocT>> fwrap( st
 }
 
 // TODO: fwrap construction currently takes a copy. Add additional set of types
-// that wrap using a reference but build into new containers
+// that wrap using a reference/iterators but build into new containers
 
 // filter, reverse, iterator views making lazy expression chains etc.
-// toList, toSet, groupBy, unique, slice etc.
+// groupBy, slice etc.
 
 
 template<typename InT, typename Functor>
@@ -309,6 +339,21 @@ public:
     double operator()( const int& v ) { return 3.0 * v; }
 };
 
+void meanMedian()
+{
+    std::vector<double> values = { 3.0, 4.0, 1.0, 2.0, 3.0, 6.0, 7.0, 4.0, 2.0, 8.0 };
+    
+    int n = values.size();
+    
+    auto res = fwrap(values)
+        .sort( []( const double& lhs, const double& rhs ) { return lhs < rhs; } )
+        .zipWithIndex()
+        .filter( [n]( const std::pair<double, int>& v ) { return v.second > n/4 && v.second < 3*(n/4); } )
+        .map( []( const std::pair<double, int>& v ) { return v.first; } )
+        //.slice( n/4, 3*(n/4) )
+        .foldLeft(0.0, [n]( const double& acc, const double& v ) { return acc + v/static_cast<double>(n); } );
+}
+
 void test()
 {
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
@@ -321,6 +366,8 @@ void test()
     auto pairList = fwrap(lo);
     auto mapO = fwrap(mo);
     
+    auto uniquea = fwrap(a).unique();
+    
     // Currently not possible as requires a container of pairs and that's not always the case
     //auto genMap = pairList.toMap();
     
@@ -328,8 +375,6 @@ void test()
         .map( []( const std::pair<int, double>& v ){ return std::make_pair( v.second, v.first ); } )
         .toVector()
         .map( []( const std::pair<double, int>& v ){ return v.second; } );
-    
-    
     
     auto listO = fwrap(l).toSet().toList();
     
@@ -346,7 +391,6 @@ void test()
     auto sa = fwrap(s)
         .map( []( const int& v ) { return v * 3.0; } )
         .filter( [](const double& v) { return v > 10.0; } );
-    
     
 }
 
