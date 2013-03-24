@@ -33,16 +33,7 @@
 // * std::result_of for computed return types
 
 
-template<typename T>
-void check_equal( const char* FILE, int line, const T& lhs, const T& rhs )
-{
-    if ( lhs != rhs )
-    {
-        std::cerr << "Assertion Failure: (" << FILE << ", " << line << "): " << lhs << " != " << rhs << std::endl;
-    }
-}
 
-#define CHECK_EQUAL( lhs, rhs ) check_equal( __FILE__, __LINE__, (lhs), (rhs) )
 
 struct T1
 {
@@ -182,22 +173,20 @@ void otherTests()
     for ( auto v : IterRange(10, 20) ) acc += v;
     CHECK_EQUAL( acc, 145.0 );
     
-    auto viewSum = fwrap(values).toView()
-        .filter( []( const double& v ) { return v >= 8.0; } )
-        .map( []( const double& v ) { return v * 3.0; } )
-        .foldLeft(0.0, []( const double& acc, const double& v ) { return acc+v; } );
-        
     auto nonViewSum = fwrap(values)
         .filter( []( const double& v ) { return v >= 8.0; } )
         .map( []( const double& v ) { return v * 3.0; } )
         .foldLeft(0.0, []( const double& acc, const double& v ) { return acc+v; } );
         
-    CHECK_EQUAL( viewSum, 147.0 );
     CHECK_EQUAL( nonViewSum, 147.0 );
 }
 
+void hashTest();
+
 int main( int argc, char* argv[] )
 {
+    std::cout << "Running tests" << std::endl;
+    
     // Extended initialiser lists. Hurray. Uses initialiser list constructor.
     std::vector<int> test1 = { 4, 5, 6, 0, 1, 2, 3, 7, 8, 9 };
     
@@ -242,7 +231,11 @@ int main( int argc, char* argv[] )
     CHECK_EQUAL( test1[2], 49 );
     
     meanMedian();
-    otherTests();   
+    otherTests();
+    
+    hashTest();
+    
+    std::cout << "Test run complete." << std::endl;
 }
 
 

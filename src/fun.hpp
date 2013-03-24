@@ -9,10 +9,19 @@
 #include <functional>
 #include <type_traits>
 
-#include <boost/iterator/filter_iterator.hpp>
-#include <boost/iterator/transform_iterator.hpp>
-
+#include <iostream>
 #include <sstream>
+
+template<typename T>
+inline void check_equal( const char* FILE, int line, const T& lhs, const T& rhs )
+{
+    if ( lhs != rhs )
+    {
+        std::cerr << "Assertion Failure: (" << FILE << ", " << line << "): " << lhs << " != " << rhs << std::endl;
+    }
+}
+
+#define CHECK_EQUAL( lhs, rhs ) check_equal( __FILE__, __LINE__, (lhs), (rhs) )
 
 template<typename ElT, typename AllocT>
 struct list_data
@@ -124,83 +133,6 @@ struct map_data
     }
     
     container_t m_container;
-};
-
-template<typename IteratorT>
-struct range_wrapper
-{
-    //toList, toSet, toMap, toVector, map, filter, foldLeft
-    range_wrapper( IteratorT begin, IteratorT end ) : m_begin(begin), m_end(end)
-    {
-    }
-    
-    template<typename Functor>
-    range_wrapper<boost::transform_iterator<Functor, IteratorT>> map( Functor fn )
-    {
-        typedef boost::transform_iterator<Functor, IteratorT> TransformIt;
-        return range_wrapper<TransformIt>( TransformIt( m_begin, fn ), TransformIt( m_end, fn ) );
-    }
-    
-    template<typename Functor>
-    range_wrapper<boost::filter_iterator<Functor, IteratorT>> filter( Functor fn )
-    {
-        typedef boost::filter_iterator<Functor, IteratorT> FilterIt;
-        return range_wrapper<FilterIt>( FilterIt( fn, m_begin, m_end ), FilterIt( fn, m_end, m_end ) );
-    }
-    
-    template<typename res_t, typename Functor>
-    res_t foldLeft( res_t acc, Functor fn )
-    {
-        for ( IteratorT it = m_begin; it != m_end; ++it )
-        {
-            acc = fn(acc, *it);
-        }
-        
-        return acc;
-    }
-    
-    
-    /*container_wrapper<set_data<el_t, std::less<el_t>, std::allocator<el_t>>> toSet()
-    {
-        typedef set_data<el_t, std::less<el_t>, std::allocator<el_t>> res_t;
-        
-        res_t res;
-        for ( IteratorT it = m_begin; it != m_end; ++it )
-        {
-            res.add(*it);
-        }
-        
-        return container_wrapper<res_t>(res);
-    }
-    
-    container_wrapper<vector_data<el_t, std::allocator<el_t>>> toVector()
-    {
-        typedef vector_data<el_t, std::allocator<el_t>> res_t;
-        
-        res_t res;
-        for ( IteratorT it = m_begin; it != m_end; ++it )
-        {
-            res.add(*it);
-        }
-        
-        return container_wrapper<res_t>(res);
-    }
-    
-    container_wrapper<list_data<el_t, std::allocator<el_t>>> toList()
-    {
-        typedef list_data<el_t, std::allocator<el_t>> res_t;
-        
-        res_t res;
-        for ( IteratorT it = m_begin; it != m_end; ++it )
-        {
-            res.add(*it);
-        }
-        
-        return container_wrapper<res_t>(res);
-    }*/
-    
-    
-    IteratorT m_begin, m_end;
 };
 
 
@@ -385,10 +317,6 @@ struct container_wrapper
         return container_wrapper<res_t>(res);
     }
     
-    range_wrapper<typename container_data::container_t::iterator> toView()
-    {
-        return range_wrapper<typename container_data::container_t::iterator>( m_data.m_container.begin(), m_data.m_container.end() );
-    }
 };
 
 template<typename ElT, typename AllocT>
