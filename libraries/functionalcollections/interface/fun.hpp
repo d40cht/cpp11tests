@@ -12,16 +12,7 @@
 #include <iostream>
 #include <sstream>
 
-template<typename T>
-inline void check_equal( const char* FILE, int line, const T& lhs, const T& rhs )
-{
-    if ( lhs != rhs )
-    {
-        std::cerr << "Assertion Failure: (" << FILE << ", " << line << "): " << lhs << " != " << rhs << std::endl;
-    }
-}
-
-#define CHECK_EQUAL( lhs, rhs ) check_equal( __FILE__, __LINE__, (lhs), (rhs) )
+#include "checks.hpp"
 
 template<typename ElT, typename AllocT>
 struct list_data

@@ -1,0 +1,61 @@
+import sys
+import os.path
+
+env = Environment()
+env.Append(CXXFLAGS = '-std=c++11')
+env['CXX'] = "/usr/bin/g++-4.7"
+
+scriptRoot = Dir("#").abspath
+
+class NavStaticLibrary(object):
+    def interfacePath( self ):
+        return os.path.join( self.path, "interface" )
+    
+    def __init__( self, name, path, libDependencies ):
+        self.name = name
+        self.path = path
+        
+        localEnv = env.Clone()
+        allIncludePaths = ["#" + self.interfacePath()] + ["#" + dep.interfacePath() for dep in libDependencies]
+        localEnv.Append(CPPPATH = allIncludePaths)
+
+        self.underlying = localEnv.StaticLibrary( name, Glob( os.path.join( path, "source", "*.cpp" ) ) )
+        
+        testPath = os.path.join( scriptRoot, self.path, "test" )
+        if os.path.exists( testPath ):
+            testName = name + "_test"
+            testApp = NavApplication( testName, testPath, [self] + libDependencies )
+            testAlias = Alias( testName, [testApp.underlying], testApp.underlying[0].abspath )
+            AlwaysBuild( testAlias )
+            
+            
+
+class NavApplication(object):
+    def includePath( self ):
+        return os.path.join( self.path, "include" )
+        
+    def __init__( self, name, path, libDependencies ):
+        self.name = name
+        self.path = path
+        
+        localEnv = env.Clone()
+        allIncludePaths = ["#" + self.includePath()] + ["#" + dep.interfacePath() for dep in libDependencies]
+        localEnv.Append(CPPPATH = allIncludePaths)
+
+        self.underlying = localEnv.Program( name, Glob( os.path.join( path, "source", "*.cpp" ) ), LIBS=[dep.underlying for dep in libDependencies] )
+        
+
+# Declaration of libraries
+utility = NavStaticLibrary( 'utility', 'libraries/utility', [] )
+functionalCollections = NavStaticLibrary( 'functionalcollections', 'libraries/functionalcollections', [utility] )
+dataStructures = NavStaticLibrary( 'datastructures', 'libraries/datastructures', [utility] )
+
+
+
+program = NavApplication( 'test', 'applications/simple', [utility, functionalCollections, dataStructures] )
+
+#test_alias = Alias('test', [program], program[0].abspath )
+
+#AlwaysBuild( test_alias )
+
+

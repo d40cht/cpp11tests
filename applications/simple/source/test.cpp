@@ -233,8 +233,6 @@ int main( int argc, char* argv[] )
     meanMedian();
     otherTests();
     
-    hashTest();
-    
     std::cout << "Test run complete." << std::endl;
 }
 
