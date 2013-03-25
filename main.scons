@@ -1,11 +1,6 @@
 import sys
 import os.path
 
-env = Environment()
-env.Append(CXXFLAGS = '-std=c++11')
-env['CXX'] = "/usr/bin/g++-4.7"
-
-scriptRoot = Dir("#").abspath
 
 class NavStaticLibrary(object):
     def interfacePath( self ):
@@ -15,13 +10,13 @@ class NavStaticLibrary(object):
         self.name = name
         self.path = path
         
-        localEnv = env.Clone()
+        localEnv = build.env.Clone()
         allIncludePaths = ["#" + self.interfacePath()] + ["#" + dep.interfacePath() for dep in libDependencies]
         localEnv.Append(CPPPATH = allIncludePaths)
 
         self.underlying = localEnv.StaticLibrary( name, Glob( os.path.join( path, "source", "*.cpp" ) ) )
         
-        testPath = os.path.join( scriptRoot, self.path, "test" )
+        testPath = os.path.join( build.scriptRoot, self.path, "test" )
         if os.path.exists( testPath ):
             testName = name + "_test"
             testApp = NavApplication( build, testName, testPath, [self] + libDependencies )
@@ -37,7 +32,7 @@ class NavApplication(object):
         self.name = name
         self.path = path
         
-        localEnv = env.Clone()
+        localEnv = build.env.Clone()
         allIncludePaths = ["#" + self.includePath()] + ["#" + dep.interfacePath() for dep in libDependencies]
         localEnv.Append(CPPPATH = allIncludePaths)
 
@@ -46,6 +41,11 @@ class NavApplication(object):
 class NavBuild(object):
     def __init__( self ):
         self.allTests = []
+        self.env = Environment()
+        self.env.Append(CXXFLAGS = '-std=c++11')
+        self.env['CXX'] = "/usr/bin/g++-4.7"
+
+        self.scriptRoot = Dir("#").abspath
 
     def staticLibrary( self, name, path, libDependencies ):
         return NavStaticLibrary( self, name, path, libDependencies )

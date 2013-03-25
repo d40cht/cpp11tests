@@ -1,5 +1,8 @@
 #include "hashtable.hpp"
+#include "mergesort.hpp"
+
 #include <iostream>
+#include <algorithm>
 
 void hashTest()
 {
@@ -42,6 +45,22 @@ void hashTest()
     CHECK_EQUAL( testHashTable.find( 5 ), true );
     
     std::cerr << "Complete" << std::endl;
+}
+
+void mergeSortTest()
+{
+    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6 };
+    std::vector<int> results = input;
+    
+    mergeSort( input );
+    std::sort( results.begin(), results.end() );
+    
+    for ( int i = 0; i < input.size(); ++i )
+    {
+        CHECK_EQUAL( input[i], results[i] );
+    }
+    
+    
 }
 
 
