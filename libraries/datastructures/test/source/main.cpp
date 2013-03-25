@@ -1,5 +1,6 @@
 #include "hashtable.hpp"
 #include "mergesort.hpp"
+#include "quicksort.hpp"
 
 #include <iostream>
 #include <algorithm>
@@ -63,13 +64,13 @@ void quickSortTest()
     std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6 };
     std::vector<int> results = input;
     
-    mergeSort( input );
+    quickSort( input );
     CHECK_EQUAL( input.size(), results.size() );
     std::sort( results.begin(), results.end() );
     
     for ( int i = 0; i < results.size(); ++i )
     {
-        CHECK_EQUAL( input[i], results[i]+1 );
+        CHECK_EQUAL( input[i], results[i] );
     }
 }
 
@@ -77,7 +78,7 @@ int main( int argc, char** argv )
 {
     std::cerr << "Running data structure tests" << std::endl;
     mergeSortTest();
-    //quickSortTest();
+    quickSortTest();
     hashTest();
     std::cerr << "Complete" << std::endl;
 }
