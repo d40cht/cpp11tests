@@ -6,8 +6,7 @@ template<typename T>
 void mergeSort( std::vector<T>& data )
 {
     int length = data.size();
-    std::vector<T> buf;
-    buf.reserve( length );
+    std::vector<T> buf( data.begin(), data.end() );
     
     auto iteration = [length]( int span, const std::vector<T>& from, std::vector<T>& to ) -> void
     {
@@ -16,7 +15,7 @@ void mergeSort( std::vector<T>& data )
             auto s1 = s;
             auto e1 = s + span;
             auto s2 = e1;
-            auto e2 = std::min( s + span*2, length );
+            auto e2 = std::min( s1 + span*2, length );
             auto out = s;
             
             while ( out < e2 )
@@ -65,9 +64,12 @@ void mergeSort( std::vector<T>& data )
         auto tmp = b;
         b = a;
         a = tmp;
-        span *= 2;
     }
 
-    if ( b != &data ) std::swap( data, buf );
+    if ( a != &data )
+    {
+        data = buf;
+    //std::swap( data, buf );
+    }
 }
 
