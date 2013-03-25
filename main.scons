@@ -1,6 +1,7 @@
 import sys
 import os.path
 
+Import('buildConfig')
 
 class NavStaticLibrary(object):
     def interfacePath( self ):
@@ -39,11 +40,16 @@ class NavApplication(object):
         self.underlying = localEnv.Program( name, Glob( os.path.join( path, "source", "*.cpp" ) ), LIBS=[dep.underlying for dep in libDependencies] )
 
 class NavBuild(object):
-    def __init__( self ):
+    def __init__( self, buildConfig ):
         self.allTests = []
-        self.env = Environment()
-        self.env.Append(CXXFLAGS = '-std=c++11')
+        self.buildConfig = buildConfig
+        self.env = buildConfig.env
+        
         self.env['CXX'] = "/usr/bin/g++-4.7"
+        if buildConfig.mode.value == "debug":
+            self.env.Append(CXXFLAGS = '-std=c++11 -g')
+        else:
+            self.env.Append(CXXFLAGS = '-std=c++11 -O2')
 
         self.scriptRoot = Dir("#").abspath
 
@@ -57,7 +63,7 @@ class NavBuild(object):
         allTestAlias = Alias( "test", [t for tn, t in self.allTests] )
         AlwaysBuild( allTestAlias )
 
-nb = NavBuild()
+nb = NavBuild(buildConfig)
 
 # Declaration of libraries
 utility = nb.staticLibrary( 'utility', 'libraries/utility', [] )
