@@ -17,7 +17,7 @@ class NavStaticLibrary(object):
 
         self.underlying = localEnv.StaticLibrary( name, Glob( os.path.join( path, "source", "*.cpp" ) ) )
         
-        testPath = os.path.join( build.scriptRoot, self.path, "test" )
+        testPath = os.path.join( self.path, "test" )
         if os.path.exists( testPath ):
             testName = name + "_test"
             testApp = NavApplication( build, testName, testPath, [self] + libDependencies )
