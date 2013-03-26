@@ -160,7 +160,7 @@ object TestBuild extends Build
                     
                     arFile
                 },
-                compile <<= (nativeBuild) map { nb => sbt.inc.Analysis.Empty }
+                (packageBin in Compile) <<= (packageBin in Compile) dependsOn (nativeBuild)
                 
                 
             )
@@ -196,7 +196,7 @@ object TestBuild extends Build
                     
                     exeFile
                 },
-                compile <<= (nativeBuild) map { nb => sbt.inc.Analysis.Empty }
+                (packageBin in Compile) <<= (packageBin in Compile) dependsOn (nativeBuild)
             )
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
@@ -232,7 +232,6 @@ object TestBuild extends Build
     )
     
     lazy val simple = NativeExecutable( id="simple", base=file("./"),
-        dependencies = Seq( datastructures, utility, functionalcollections ),
         settings=Seq
         (
             name                := "simple",
