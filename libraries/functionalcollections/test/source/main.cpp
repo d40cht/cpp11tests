@@ -4,7 +4,7 @@
 #include <algorithm>
 
 #include "fun.hpp"
-
+ 
 // COMPILER CHANGES
 //
 // * R-value references
@@ -194,11 +194,12 @@ int main( int argc, char* argv[] )
     // Type inference
     for ( auto it = test1.begin(); it != test1.end(); it++ )
     {
-        // Same type as.
+        // Same type as. 
         decltype(it) it2 = it; 
+        CHECK_EQUAL( (*it2) < 100, true );
     }
     
-    // A fold
+    // A fold 
     int folded = std::accumulate( test1.begin(), test1.end(), 4, [](const int& lhs, const int& rhs) { return lhs + rhs; } );
     CHECK_EQUAL( folded, 49 );
     
@@ -209,7 +210,7 @@ int main( int argc, char* argv[] )
     
     // Sort with a local lambda
     std::sort( test1.begin(), test1.end(), []( const int& lhs, const int& rhs ) { return lhs < rhs; } );
-    
+     
     // A zip function would be great here...
     CHECK_EQUAL( test1[0], 0 );
     CHECK_EQUAL( test1[1], 1 );

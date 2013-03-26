@@ -2,7 +2,7 @@
 
 
 void test()
-{
+{ 
     std::vector<int> a = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::set<int> s = { 3, 4, 1, 2, 3, 6, 7, 4, 2, 8 };
     std::list<int> l = { 4, 3, 1, 6, 7, 5, 10 };
@@ -32,8 +32,8 @@ void test()
         .map( []( const int& v ) { return v * 1.5; } )
         .sort( []( const double& l, const double& r ) { return l < r; } );
         
-    double sum = wa.foldLeft(0.0, []( const double& l, const double& r ) { return l + r; } );
-    double max = wa.foldLeft(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
+    //auto sum = wa.foldLeft(0.0, []( const double& l, const double& r ) { return l + r; } );
+    //auto max = wa.foldLeft(std::numeric_limits<double>::min(), []( const double& l, const double& r ) { return std::max(l, r); } );
         
     auto sa = fwrap(s)
         .map( []( const int& v ) { return v * 3.0; } )

@@ -53,7 +53,7 @@ void mergeSortTest()
     CHECK_EQUAL( input.size(), results.size() );
     std::sort( results.begin(), results.end() );
     
-    for ( int i = 0; i < results.size(); ++i )
+    for ( size_t i = 0; i < results.size(); ++i )
     {
         CHECK_EQUAL( input[i], results[i] );
     }
@@ -68,7 +68,7 @@ void quickSortTest()
     CHECK_EQUAL( input.size(), results.size() );
     std::sort( results.begin(), results.end() );
     
-    for ( int i = 0; i < results.size(); ++i )
+    for ( size_t i = 0; i < results.size(); ++i )
     {
         CHECK_EQUAL( input[i], results[i] );
     }
