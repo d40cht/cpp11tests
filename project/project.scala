@@ -240,7 +240,7 @@ object TestBuild extends Build
             includeDirectories  += new File( "./libraries/utility/interface" ),
             nativeLibraries     ++= Set( new File( "./sbtbuild/utility/utility.a" ), new File( "./sbtbuild/functionalcollections/functionalcollections.a" ), new File( "./sbtbuild/datastructures/datastructures.a" ) )
         )
-    )//.dependsOn( datastructures, utility, functionalcollections )
+    ).dependsOn( datastructures, utility, functionalcollections )
     
     lazy val all = Project( id="all", base=file(".") ).aggregate( utility, datastructures, functionalcollections, simple )
     
