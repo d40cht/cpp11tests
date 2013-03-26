@@ -160,7 +160,7 @@ object TestBuild extends Build
                     
                     arFile
                 },
-                (packageBin in Compile) <<= (packageBin in Compile) dependsOn (nativeBuild)
+                (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
                 
                 
             )
@@ -196,7 +196,7 @@ object TestBuild extends Build
                     
                     exeFile
                 },
-                (packageBin in Compile) <<= (packageBin in Compile) dependsOn (nativeBuild)
+                (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
             )
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
@@ -237,9 +237,9 @@ object TestBuild extends Build
             name                := "simple",
             projectDirectory    := new File( "./applications/simple" ),
             includeDirectories  += new File( "./libraries/utility/interface" ),
-            nativeLibraries     ++= Set( new File( "./sbtbuild/utility/utility.a" ), new File( "./sbtbuild/functionalcollections/functionalcollections.a" ), new File( "./sbtbuild/datastructures/datastructures.a" ) )
+            nativeLibraries     ++= Set( new File( "./sbtbuild/utility/utility.a" ) )
         )
-    ).dependsOn( datastructures, utility, functionalcollections )
+    ).dependsOn( utility )
     
     lazy val all = Project( id="all", base=file(".") ).aggregate( utility, datastructures, functionalcollections, simple )
     
