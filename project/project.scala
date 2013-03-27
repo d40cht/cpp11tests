@@ -1,9 +1,20 @@
 import sbt._
 import Keys._
+import complete.{Parser, RichParser}
+import complete.DefaultParsers._
 
 package native
 {
     import sbt.std.{TaskStreams}
+    
+    case class BuildConfig(
+        // Debug or release
+        val mode : String,
+        // Compiler (e.g. g++, clang etc)
+        val compiler : String,
+        // Target platform (e.g. LinuxPC, RaspberryPI etc)
+        val platform : String )
+        
 
     class FunctionWithResultPath( val resultPath : File, val fn : () => File )
     {
@@ -91,6 +102,8 @@ object TestBuild extends Build
 {   
     //val compilerExe = SettingKey[File]("compiler", "Path to compiler executable")
     //val archiveExe = SettingKey[File]("archive", "Path to archive executable")
+    
+    val buildConfig = SettingKey[Option[native.BuildConfig]]("build-config")
     val buildDirectory = TaskKey[File]("build-dir", "Build directory")
     val stateCacheDirectory = TaskKey[File]("state-cache-dir", "Build state cache directory")
     val projectDirectory = SettingKey[File]("project-dir", "Project directory")
@@ -105,6 +118,75 @@ object TestBuild extends Build
     val testProject = TaskKey[Option[Project]]("test-project", "The test sub-project for this project")
     
     val compiler = SettingKey[native.Compiler]("compiler", "The compiler to use for this project")
+    
+    val modeOption : Parser[String] = token("debug") | token("release")
+    val compilerOption : Parser[String] = token("gcc") | token("clang")
+    val platformOption  : Parser[String] = token("linux") | token("beaglebone")
+    
+    val buildOptsParser =
+    (
+        (Space ~> modeOption) ~
+        (Space ~> compilerOption) ~
+        (Space ~> platformOption)
+    )
+    
+    def setBuildConfigCommand = Command("set-build-config")(_ => buildOptsParser)
+    {
+        (state, args) =>
+   
+        val ((mode, compiler), platform) = args
+        val bc = new native.BuildConfig( mode.mkString, compiler.mkString, platform.mkString )
+        val extracted : Extracted = Project.extract(state)
+        
+        val buildConfigUpdateCommands = extracted.structure.allProjectRefs.map
+        { pref =>
+        
+            (buildConfig in pref) := Some(bc)
+        }
+        
+        extracted.append( buildConfigUpdateCommands, state )
+    }
+   
+    def buildCommand = Command.command("build")
+    { state =>
+   
+        // TODO: This is NOT HOW IT SHOULD BE. We need to get SBT to use its
+        // own internal dependency analysis mechanism here. Yuk yuk yuk.
+        val extracted : Extracted = Project.extract(state)
+        
+        var seenProjectIds = Set[String]()
+        def buildProjectRecursively( project : ResolvedProject, projectRef : ProjectRef )
+        {
+            def scheduleProjectRef( projectReference : ProjectRef ) =
+            {
+                val resolvedO = Project.getProjectForReference( projectReference, extracted.structure )
+                
+                
+                resolvedO.foreach
+                { r =>
+                    if ( !seenProjectIds.contains( r.id ) )
+                    {
+                        seenProjectIds += r.id
+                        buildProjectRecursively( r, projectReference )
+                    }
+                }
+            }
+            
+            project.dependencies.foreach { cpd => scheduleProjectRef( cpd.project ) }
+            project.aggregate.foreach { agg => scheduleProjectRef( agg ) }
+            
+            Project.runTask(
+                // The task to run
+                nativeBuild in projectRef,
+                state,
+                // Check for cycles
+                true )
+        }
+        
+        buildProjectRecursively( extracted.currentProject, extracted.currentRef )
+            
+        state
+    }
    
     object NativeProject
     {
@@ -114,16 +196,24 @@ object TestBuild extends Build
             aggregate : => Seq[ProjectReference] = Nil,
             dependencies : => Seq[ClasspathDep[ProjectReference]] = Nil,
             delegates : => Seq[ProjectReference] = Nil,
-            settings : => Seq[sbt.Project.Setting[_]],
+            settings : => Seq[sbt.Project.Setting[_]] = Nil,
             configurations : Seq[Configuration] = Configurations.default ) =
         {
             val defaultSettings = Seq(
             
+                commands            ++= Seq( buildCommand, setBuildConfigCommand ),
+                
+                buildConfig         := None,
+            
                 compiler            := new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ),
                 
-                buildDirectory      <<= (baseDirectory, name) map
-                { case (bd, n) =>
-                    val dir = bd / "sbtbuild" / n
+                buildDirectory      <<= (baseDirectory, name, buildConfig) map
+                { case (bd, n, bco) =>
+                
+                    if ( bco.isEmpty ) error( "Please set a build configuration using set-build-config" )
+                    val bc = bco.get
+                
+                    val dir = bd / "sbtbuild" / n / bc.platform / bc.compiler / bc.mode
                     
                     IO.createDirectory(dir)
                     
@@ -222,21 +312,19 @@ object TestBuild extends Build
             configurations : Seq[Configuration] = Configurations.default ) =
         {
             val defaultSettings = Seq(
-                nativeBuild           <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, linkDirectories, nativeLibraries, streams) map
+                nativeBuild <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, linkDirectories, nativeLibraries, streams) map
                 { case (c, projName, bd, scd, ofs, lds, nls, s) =>
                 
                     val blf = c.buildExecutable( s, bd, projName, lds, nls, ofs )
                     
                     blf.runIfNotCached( scd, ofs )
                 },
+                
                 (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
             )
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
     }
-    
-    
-    
         
     lazy val utility = StaticLibrary( id="utility", base=file("./"),
         settings=Seq
@@ -252,6 +340,20 @@ object TestBuild extends Build
             name                := "datastructures",
             projectDirectory    := file( "./libraries/datastructures" ),
             includeDirectories  += file( "./libraries/utility/interface" )
+        )
+    )
+    
+    lazy val datastructuresTest = NativeExecutable( id="datastructures_test", base=file("./"),
+        settings=Seq
+        (
+            name                := "datastructures_test",
+            projectDirectory    := file( "./libraries/datastructures/test" ),
+            includeDirectories  += file( "./libraries/utility/interface" ),
+            includeDirectories  += file( "./libraries/datastructures/interface" ),
+            includeDirectories  += file( "./libraries/datastructures/test/include" ),
+            linkDirectories     ++= Seq( file("./sbtbuild/utility")  ),
+            linkDirectories     ++= Seq( file("./sbtbuild/datastructures")  ),
+            nativeLibraries     ++= Seq( "utility", "datastructures" )
         )
     )
     
@@ -275,7 +377,7 @@ object TestBuild extends Build
         )
     ).dependsOn( utility )
     
-    lazy val all = Project( id="all", base=file(".") ).aggregate( utility, datastructures, functionalcollections, simple )
+    lazy val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, datastructuresTest, functionalcollections, simple )
     
     
 }
