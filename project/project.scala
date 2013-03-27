@@ -104,7 +104,8 @@ object TestBuild extends Build
     //val archiveExe = SettingKey[File]("archive", "Path to archive executable")
     
     val buildConfig = SettingKey[Option[native.BuildConfig]]("build-config")
-    val buildDirectory = TaskKey[File]("build-dir", "Build directory")
+    val rootBuildDirectory = TaskKey[File]("root-build-dir", "Build root directory (for the config, not the project)")
+    val projectBuildDirectory = TaskKey[File]("project-build-dir", "Build directory for this config and project")
     val stateCacheDirectory = TaskKey[File]("state-cache-dir", "Build state cache directory")
     val projectDirectory = SettingKey[File]("project-dir", "Project directory")
     val sourceDirectory = TaskKey[File]("source-dir", "Source directory")
@@ -114,7 +115,8 @@ object TestBuild extends Build
     val sourceFiles = TaskKey[Set[File]]("source-files", "All source files for this project")
     val sourceFilesWithDeps = TaskKey[Map[File, Set[File]]]("source-files-with-deps", "All source files for this project")
     val objectFiles = TaskKey[Set[File]]("object-files", "All object files for this project" )
-    val nativeBuild = TaskKey[Unit]("native-build", "Perform a native build for this project" )
+    val nativeCompile = TaskKey[File]("native-compile", "Perform a native compilation for this project" )
+    val nativeRun = TaskKey[Unit]("native-run", "Perform a native run of this project" )
     val testProject = TaskKey[Option[Project]]("test-project", "The test sub-project for this project")
     
     val compiler = SettingKey[native.Compiler]("compiler", "The compiler to use for this project")
@@ -138,6 +140,7 @@ object TestBuild extends Build
         val bc = new native.BuildConfig( mode.mkString, compiler.mkString, platform.mkString )
         val extracted : Extracted = Project.extract(state)
         
+        // Reconfigure all projects to this new build config
         val buildConfigUpdateCommands = extracted.structure.allProjectRefs.map
         { pref =>
         
@@ -177,7 +180,7 @@ object TestBuild extends Build
             
             Project.runTask(
                 // The task to run
-                nativeBuild in projectRef,
+                nativeCompile in projectRef,
                 state,
                 // Check for cycles
                 true )
@@ -207,32 +210,42 @@ object TestBuild extends Build
             
                 compiler            := new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ),
                 
-                buildDirectory      <<= (baseDirectory, name, buildConfig) map
-                { case (bd, n, bco) =>
+                rootBuildDirectory      <<= (baseDirectory, buildConfig) map
+                { case (bd, bco) =>
                 
                     if ( bco.isEmpty ) error( "Please set a build configuration using set-build-config" )
                     val bc = bco.get
                 
-                    val dir = bd / "sbtbuild" / n / bc.platform / bc.compiler / bc.mode
+                    val dir = bd / "sbtbuild" / bc.platform / bc.compiler / bc.mode
                     
                     IO.createDirectory(dir)
                     
                     dir
                 },
                 
-                stateCacheDirectory <<= (buildDirectory) map { _ / "state-cache"  },
+                projectBuildDirectory      <<= (rootBuildDirectory, name) map
+                { case (rbd, n) =>
+                
+                    val dir = rbd / n
+                    
+                    IO.createDirectory(dir)
+                    
+                    dir
+                },
+                
+                stateCacheDirectory <<= (projectBuildDirectory) map { _ / "state-cache"  },
                 
                 includeDirectories  <<= (projectDirectory) map { pd => Seq(pd / "interface") },
                 
                 linkDirectories     :=  Seq(),
                 
-                nativeLibraries     <<= (buildDirectory) map { _ => Seq() },
+                nativeLibraries     <<= (projectBuildDirectory) map { _ => Seq() },
                 
                 sourceDirectory     <<= (projectDirectory) map { _ / "source" },
                 
                 sourceFiles         <<= (sourceDirectory) map { pd => ((pd ** "*.cpp").get ++ (pd ** "*.c").get).toSet },
                 
-                sourceFilesWithDeps <<= (compiler, buildDirectory, stateCacheDirectory, includeDirectories, sourceFiles, streams) map
+                sourceFilesWithDeps <<= (compiler, projectBuildDirectory, stateCacheDirectory, includeDirectories, sourceFiles, streams) map
                 {
                     case (c, bd, scd, ids, sfs, s) =>
                     
@@ -251,7 +264,7 @@ object TestBuild extends Build
                 
                 watchSources        <++= (sourceFilesWithDeps) map { sfd => sfd.toList.flatMap { case (sf, deps) => (sf +: deps.toList) } },
                 
-                objectFiles         <<= (compiler, buildDirectory, stateCacheDirectory, includeDirectories, sourceFiles, sourceFilesWithDeps, streams) map
+                objectFiles         <<= (compiler, projectBuildDirectory, stateCacheDirectory, includeDirectories, sourceFiles, sourceFilesWithDeps, streams) map
                 { case (c, bd, scd, ids, sfs, sfdeps, s) =>
                     
                     // Build each source file in turn as required
@@ -285,14 +298,14 @@ object TestBuild extends Build
             configurations : Seq[Configuration] = Configurations.default ) =
         {
             val defaultSettings = Seq(
-                nativeBuild           <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, streams) map
+                nativeCompile <<= (compiler, name, projectBuildDirectory, stateCacheDirectory, objectFiles, streams) map
                 { case (c, projName, bd, scd, ofs, s) =>
                 
                     val blf = c.buildStaticLibrary( s, bd, projName, ofs )
                     
                     blf.runIfNotCached( scd, ofs )
                 },
-                (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
+                (compile in Compile) <<= (compile in Compile) dependsOn (nativeCompile)
                 
                 
             )
@@ -312,15 +325,21 @@ object TestBuild extends Build
             configurations : Seq[Configuration] = Configurations.default ) =
         {
             val defaultSettings = Seq(
-                nativeBuild <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, linkDirectories, nativeLibraries, streams) map
+                nativeCompile <<= (compiler, name, projectBuildDirectory, stateCacheDirectory, objectFiles, linkDirectories, nativeLibraries, streams) map
                 { case (c, projName, bd, scd, ofs, lds, nls, s) =>
                 
                     val blf = c.buildExecutable( s, bd, projName, lds, nls, ofs )
                     
                     blf.runIfNotCached( scd, ofs )
                 },
-                
-                (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
+                nativeRun <<= (nativeCompile, streams) map
+                { case (nbExe, s) =>
+                    
+                    val res = nbExe.toString !
+                    
+                    if ( res != 0 ) error( "Non-zero exit code: " + res.toString )
+                },
+                (compile in Compile) <<= (compile in Compile) dependsOn (nativeCompile)
             )
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
@@ -351,8 +370,7 @@ object TestBuild extends Build
             includeDirectories  += file( "./libraries/utility/interface" ),
             includeDirectories  += file( "./libraries/datastructures/interface" ),
             includeDirectories  += file( "./libraries/datastructures/test/include" ),
-            linkDirectories     ++= Seq( file("./sbtbuild/utility")  ),
-            linkDirectories     ++= Seq( file("./sbtbuild/datastructures")  ),
+            linkDirectories     <++= (rootBuildDirectory) map { bd => Seq( bd / "utility", bd / "datastructures" ) },
             nativeLibraries     ++= Seq( "utility", "datastructures" )
         )
     )
@@ -372,7 +390,7 @@ object TestBuild extends Build
             name                := "simple",
             projectDirectory    := file( "./applications/simple" ),
             includeDirectories  += file( "./libraries/utility/interface" ),
-            linkDirectories     ++= Seq( file("./sbtbuild/utility")  ),
+            linkDirectories     <+= (rootBuildDirectory) map { _ / "utility" },
             nativeLibraries     ++= Seq( "utility" )
         )
     ).dependsOn( utility )
