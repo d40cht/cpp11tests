@@ -5,19 +5,42 @@ package native
 {
     import sbt.std.{TaskStreams}
 
+    class FunctionWithResultPath( val resultPath : File, val fn : () => File )
+    {
+        def apply() = fn()
+        def runIfNotCached( stateCacheDir : File, inputDeps : Set[File] ) =
+        {
+            val lazyBuild = FileFunction.cached( stateCacheDir / resultPath.toString , FilesInfo.lastModified, FilesInfo.exists ) 
+            { _ =>
+                Set( fn() )
+            }
+            lazyBuild(inputDeps)
+            
+            resultPath
+        }
+    }
+    
+    object FunctionWithResultPath
+    {
+        def apply( resultPath : File )( fn : File => Unit ) =
+        {
+            new FunctionWithResultPath( resultPath, () => { fn(resultPath); resultPath } )
+        }
+    }
     
     trait Compiler
     {
-        def findHeaderDependencies( s : TaskStreams[_],  includePaths : Seq[File], sourceFile : File ) : Set[File]
-        def compileToObjectFile( s : TaskStreams[_], includePaths : Seq[File], sourceFile : File, outputFile : File ) : Unit
-        def buildStaticLibrary( s : TaskStreams[_], objectFiles : Set[File], outputFile : File ) : Unit
-        def buildExecutable( s : TaskStreams[_], linkPaths : Seq[File], linkLibraries : Seq[String], inputFiles : Set[File], outputFile : File ) : Unit
+        def findHeaderDependencies( s : TaskStreams[_], buildDirectory : File,  includePaths : Seq[File], sourceFile : File ) : FunctionWithResultPath
+        def compileToObjectFile( s : TaskStreams[_], buildDirectory : File, includePaths : Seq[File], sourceFile : File ) : FunctionWithResultPath
+        def buildStaticLibrary( s : TaskStreams[_], buildDirectory : File, libName : String, objectFiles : Set[File] ) : FunctionWithResultPath
+        def buildExecutable( s : TaskStreams[_], buildDirectory : File, exeName : String, linkPaths : Seq[File], linkLibraries : Seq[String], inputFiles : Set[File] ) : FunctionWithResultPath
     }
     
     class GccCompiler( val compilerPath : File, val archiverPath : File, val linkerPath : File ) extends Compiler
     {
-        def findHeaderDependencies( s : TaskStreams[_], includePaths : Seq[File], sourceFile : File ) : Set[File] =
-        {
+        def findHeaderDependencies( s : TaskStreams[_], buildDirectory : File, includePaths : Seq[File], sourceFile : File ) = FunctionWithResultPath( buildDirectory / (sourceFile.base + ".d") )
+        { depFile =>
+        
             val includePathArg = includePaths.map( ip => "-I " + ip ).mkString(" ")
             val depCmd = "%s -std=c++11 -M %s %s".format( compilerPath, includePathArg, sourceFile )
             s.log.info( "Executing: " + depCmd )
@@ -29,38 +52,38 @@ package native
             // Drop the first column and split on spaces to get all the files (potentially several per line )
             val allFiles = depFileLines.flatMap( _.split(" ").drop(1) ).map( x => new File(x.trim) )
             
-            allFiles.toSet
+            IO.write( depFile, allFiles.mkString("\n") )
         }
         
-        def compileToObjectFile( s : TaskStreams[_], includePaths : Seq[File], sourceFile : File, outputFile : File ) : Unit =
-        {
+        def compileToObjectFile( s : TaskStreams[_], buildDirectory : File, includePaths : Seq[File], sourceFile : File ) = FunctionWithResultPath( buildDirectory / (sourceFile.base + ".o") )
+        { outputFile =>
+        
             val includePathArg = includePaths.map( ip => "-I " + ip ).mkString(" ")
             val buildCmd = "%s -std=c++11 -Werror -Wall %s -g -c -o %s %s".format( compilerPath, includePathArg, outputFile, sourceFile )
                            
             s.log.info( "Executing: " + buildCmd )
             buildCmd !!
-            
-            outputFile
         }
         
-        def buildStaticLibrary( s : TaskStreams[_], objectFiles : Set[File], outputFile : File ) : Unit =
-        {
-            val arCmd = "%s -c -r %s %s".format( archiverPath, outputFile, objectFiles.mkString(" ") )
-            s.log.info( "Executing: " + arCmd )
-            arCmd !!
+        def buildStaticLibrary( s : TaskStreams[_], buildDirectory : File, libName : String, objectFiles : Set[File] ) =
+            FunctionWithResultPath( buildDirectory / ("lib" + libName + ".a") )
+            { outputFile =>
             
-            outputFile
-        }
-        
-        def buildExecutable( s : TaskStreams[_], linkPaths : Seq[File], linkLibraries : Seq[String], inputFiles : Set[File], outputFile : File ) : Unit =
-        {
-            val linkPathArg = linkPaths.map( lp => "-L " + lp ).mkString(" ")
-            val linkCmd = "%s -o %s %s %s %s".format( linkerPath, outputFile, inputFiles.mkString(" "), linkPathArg, linkLibraries.mkString(" ") )
-            s.log.info( "Executing: " + linkCmd )
-            linkCmd !!
+                val arCmd = "%s -c -r %s %s".format( archiverPath, outputFile, objectFiles.mkString(" ") )
+                s.log.info( "Executing: " + arCmd )
+                arCmd !!
+            }
             
-            outputFile
-        }
+        def buildExecutable( s : TaskStreams[_], buildDirectory : File, exeName : String, linkPaths : Seq[File], linkLibraries : Seq[String], inputFiles : Set[File] ) =
+            FunctionWithResultPath( buildDirectory / exeName )
+            { outputFile =>
+            
+                val linkPathArg = linkPaths.map( lp => "-L " + lp ).mkString(" ")
+                val libArgs = linkLibraries.map( ll => "-l" + ll ).mkString(" ")
+                val linkCmd = "%s -o %s %s %s %s".format( linkerPath, outputFile, inputFiles.mkString(" "), linkPathArg, libArgs )
+                s.log.info( "Executing: " + linkCmd )
+                linkCmd !!
+            }
     }
 }
 
@@ -126,18 +149,11 @@ object TestBuild extends Build
                     // Calculate dependencies
                     def findDependencies( sourceFile : File ) : Set[File] =
                     {
-                        val depFile = bd / (sourceFile.base + ".d")
-                        val lazyBuild = FileFunction.cached( scd / depFile.toString , FilesInfo.lastModified, FilesInfo.exists )
-                        { _ =>
+                        val depGen = c.findHeaderDependencies( s, bd, ids, sourceFile )
                         
-                            val deps = c.findHeaderDependencies( s, ids, sourceFile )
-                            
-                            IO.write( depFile, deps.mkString("\n") )
-                            
-                            Set(depFile)
-                        }
+                        depGen.runIfNotCached( scd, Set(sourceFile) )
                         
-                        IO.readLines(depFile).map( file ).toSet
+                        IO.readLines(depGen.resultPath).map( file ).toSet
                     }
                     
                     sfs.map( sf => (sf, findDependencies(sf) ) ).toMap
@@ -156,15 +172,9 @@ object TestBuild extends Build
                         
                         s.log.debug( "Dependencies for %s: %s".format( sourceFile, dependencies.mkString(";") ) )
                         
-                        val opFile = bd / (sourceFile.base + ".o")
-                        val lazyBuild = FileFunction.cached( scd / opFile.toString, FilesInfo.lastModified, FilesInfo.exists )
-                        { _ =>
+                        val blf = c.compileToObjectFile( s, bd, ids, sourceFile )
                         
-                            c.compileToObjectFile( s, ids, opFile, sourceFile )
-                            Set(opFile)
-                        }
-                        
-                        lazyBuild( dependencies ).head
+                        blf.runIfNotCached( scd, dependencies.toSet )
                     }
                 }
             )
@@ -188,17 +198,9 @@ object TestBuild extends Build
                 nativeBuild           <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, streams) map
                 { case (c, projName, bd, scd, ofs, s) =>
                 
-                    val arFile = bd / (projName + ".a")
-                    val lazyBuild = FileFunction.cached( scd / arFile.toString, FilesInfo.lastModified, FilesInfo.exists )
-                    { _ =>
+                    val blf = c.buildStaticLibrary( s, bd, projName, ofs )
                     
-                        c.buildStaticLibrary( s, ofs, arFile )
-                        
-                        Set(arFile)
-                    }
-                    lazyBuild( ofs )
-                    
-                    arFile
+                    blf.runIfNotCached( scd, ofs )
                 },
                 (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
                 
@@ -223,17 +225,9 @@ object TestBuild extends Build
                 nativeBuild           <<= (compiler, name, buildDirectory, stateCacheDirectory, objectFiles, linkDirectories, nativeLibraries, streams) map
                 { case (c, projName, bd, scd, ofs, lds, nls, s) =>
                 
-                    val exeFile = bd / projName
-                    val lazyBuild = FileFunction.cached( scd / exeFile.toString, FilesInfo.lastModified, FilesInfo.exists )
-                    { _ =>
+                    val blf = c.buildExecutable( s, bd, projName, lds, nls, ofs )
                     
-                        c.buildExecutable( s, lds, nls, ofs, exeFile )
-                        
-                        Set(exeFile)
-                    }
-                    lazyBuild( ofs )
-                    
-                    exeFile
+                    blf.runIfNotCached( scd, ofs )
                 },
                 (compile in Compile) <<= (compile in Compile) dependsOn (nativeBuild)
             )
@@ -277,7 +271,7 @@ object TestBuild extends Build
             projectDirectory    := file( "./applications/simple" ),
             includeDirectories  += file( "./libraries/utility/interface" ),
             linkDirectories     ++= Seq( file("./sbtbuild/utility")  ),
-            nativeLibraries     ++= Seq( "utility.a" )
+            nativeLibraries     ++= Seq( "utility" )
         )
     ).dependsOn( utility )
     
