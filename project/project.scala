@@ -117,7 +117,7 @@ object TestBuild extends Build
     val objectFiles = TaskKey[Set[File]]("object-files", "All object files for this project" )
     val nativeCompile = TaskKey[File]("native-compile", "Perform a native compilation for this project" )
     val nativeRun = TaskKey[Unit]("native-run", "Perform a native run of this project" )
-    val testProject = TaskKey[Option[Project]]("test-project", "The test sub-project for this project")
+    val testProject = TaskKey[Project]("test-project", "The test sub-project for this project")
     
     val compiler = SettingKey[native.Compiler]("compiler", "The compiler to use for this project")
     
@@ -286,6 +286,7 @@ object TestBuild extends Build
         }
     }
     
+    
     object StaticLibrary
     {
         def apply(
@@ -344,6 +345,44 @@ object TestBuild extends Build
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
     }
+    
+    object NativeExecutable2
+    {
+        def apply( _name : String, _projectDirectory : File, _settings : => Seq[sbt.Project.Setting[_]] ) =
+        {
+            println( "Building: " + _name )
+            NativeExecutable( id=_name, base=file("./"),
+                settings = _settings ++ Seq(
+                    name := _name,
+                    projectDirectory := _projectDirectory ) )
+        }
+    }
+    
+    object StaticLibrary2
+    {
+        def apply( _name : String, _projectDirectory : File, _settings : => Seq[sbt.Project.Setting[_]] ) =
+        {
+            lazy val mainLibrary = StaticLibrary( id=_name, base=file("./"),
+                settings = _settings ++ Seq(
+                    name := _name,
+                    projectDirectory := _projectDirectory ) )
+                    
+            
+            // TODO: This sub-library test infrastructure doesn't seem to be working.
+            // Add test in as a set of extra keys into the main build instead
+            val testDir = (_projectDirectory / "test")
+            println( testDir, testDir.exists )
+            if ( testDir.exists )
+            {
+                val testName = _name + "_test"
+                lazy val testLibrary = NativeExecutable2( testName, testDir,
+                    Seq(
+                    ) ++ _settings )
+                testLibrary
+            }
+            else mainLibrary
+        }
+    }
         
     lazy val utility = StaticLibrary( id="utility", base=file("./"),
         settings=Seq
@@ -362,16 +401,12 @@ object TestBuild extends Build
         )
     )
     
-    lazy val datastructuresTest = NativeExecutable( id="datastructures_test", base=file("./"),
-        settings=Seq
+    
+    lazy val functionalcollections2 = StaticLibrary2(
+        "functionalcollections2", file( "./libraries/functionalcollections" ),
+        Seq
         (
-            name                := "datastructures_test",
-            projectDirectory    := file( "./libraries/datastructures/test" ),
-            includeDirectories  += file( "./libraries/utility/interface" ),
-            includeDirectories  += file( "./libraries/datastructures/interface" ),
-            includeDirectories  += file( "./libraries/datastructures/test/include" ),
-            linkDirectories     <++= (rootBuildDirectory) map { bd => Seq( bd / "utility", bd / "datastructures" ) },
-            nativeLibraries     ++= Seq( "utility", "datastructures" )
+            includeDirectories  += file( "./libraries/utility/interface" )
         )
     )
     
@@ -384,18 +419,15 @@ object TestBuild extends Build
         )
     )
     
-    lazy val simple = NativeExecutable( id="simple", base=file("./"),
-        settings=Seq
+    lazy val simple = NativeExecutable2( "simple", file( "./applications/simple" ),
+        Seq
         (
-            name                := "simple",
-            projectDirectory    := file( "./applications/simple" ),
             includeDirectories  += file( "./libraries/utility/interface" ),
-            linkDirectories     <+= (rootBuildDirectory) map { _ / "utility" },
-            nativeLibraries     ++= Seq( "utility" )
+            objectFiles         <+= (nativeCompile in utility)
         )
-    ).dependsOn( utility )
+    )
     
-    lazy val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, datastructuresTest, functionalcollections, simple )
+    lazy val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, functionalcollections, simple )
     
     
 }
