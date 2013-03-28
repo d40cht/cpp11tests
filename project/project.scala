@@ -40,13 +40,18 @@ package native
     
     case class Environment( val name : String, val compiler : Compiler )
     
-    class GccCompiler( val compilerPath : File, val archiverPath : File, val linkerPath : File ) extends Compiler
+    case class GccCompiler(
+        val compilerPath : File,
+        val archiverPath : File,
+        val linkerPath : File,
+        val compileFlags : String = "",
+        val linkFlags : String = "" ) extends Compiler
     {
         def findHeaderDependencies( s : TaskStreams[_], buildDirectory : File, includePaths : Seq[File], sourceFile : File ) = FunctionWithResultPath( buildDirectory / (sourceFile.base + ".d") )
         { depFile =>
         
             val includePathArg = includePaths.map( ip => "-I " + ip ).mkString(" ")
-            val depCmd = "%s -std=c++11 -M %s %s".format( compilerPath, includePathArg, sourceFile )
+            val depCmd = "%s %s -M %s %s".format( compilerPath, compileFlags, includePathArg, sourceFile )
             s.log.info( "Executing: " + depCmd )
             val depResult = stringToProcess( depCmd ).lines
             
@@ -63,7 +68,7 @@ package native
         { outputFile =>
         
             val includePathArg = includePaths.map( ip => "-I " + ip ).mkString(" ")
-            val buildCmd = "%s -std=c++11 -Werror -Wall %s -g -c -o %s %s".format( compilerPath, includePathArg, outputFile, sourceFile )
+            val buildCmd = "%s %s %s -c -o %s %s".format( compilerPath, compileFlags, includePathArg, outputFile, sourceFile )
                            
             s.log.info( "Executing: " + buildCmd )
             buildCmd !!
@@ -84,7 +89,7 @@ package native
             
                 val linkPathArg = linkPaths.map( lp => "-L " + lp ).mkString(" ")
                 val libArgs = linkLibraries.map( ll => "-l" + ll ).mkString(" ")
-                val linkCmd = "%s -o %s %s %s %s".format( linkerPath, outputFile, inputFiles.mkString(" "), linkPathArg, libArgs )
+                val linkCmd = "%s %s -o %s %s %s %s".format( linkerPath, linkFlags, outputFile, inputFiles.mkString(" "), linkPathArg, libArgs )
                 s.log.info( "Executing: " + linkCmd )
                 linkCmd !!
             }
@@ -392,9 +397,11 @@ object TestBuild extends NativeBuild
 
 object TestBuild extends NativeBuild
 {
+    lazy val baseGcc = new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") )
+    
     override lazy val configurations = Set[native.Environment](
-        new native.Environment( "gcc/linux/PC", new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ) ),
-        new native.Environment( "clang/linux/PC", new native.GccCompiler( file("/bin/clang++"), file("/bin/llvm-ar"), file("/bin/clang++") ) )
+        new native.Environment( "release/Gcc/Linux/PC", baseGcc.copy( compileFlags="-O2 -Wall -Wextra" ) ),
+        new native.Environment( "debug/Gcc/Linux/PC", baseGcc.copy( compileFlags="-g -Wall -Wextra" ) )
     )
         
     val utility = StaticLibrary( id="utility", base=file("./"),
@@ -431,6 +438,10 @@ object TestBuild extends NativeBuild
             includeDirectories  += file( "./libraries/utility/interface" )
         )
     )
+    
+    
+    // Can then do a dependsOn on this and it'll all magically work
+    //lazy val navetasScalaLib = uri("ssh://git@github.lan.ise-oxford.com/Navetas/navetasscalalib.git")
     
     val simple = NativeExecutable2( "simple", file( "./applications/simple" ),
         Seq
