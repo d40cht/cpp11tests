@@ -6,15 +6,6 @@ import complete.DefaultParsers._
 package native
 {
     import sbt.std.{TaskStreams}
-    
-    case class BuildConfig(
-        // Debug or release
-        val mode : String,
-        // Compiler (e.g. g++, clang etc)
-        val compiler : String,
-        // Target platform (e.g. LinuxPC, RaspberryPI etc)
-        val platform : String )
-        
 
     class FunctionWithResultPath( val resultPath : File, val fn : () => File )
     {
@@ -46,6 +37,8 @@ package native
         def buildStaticLibrary( s : TaskStreams[_], buildDirectory : File, libName : String, objectFiles : Set[File] ) : FunctionWithResultPath
         def buildExecutable( s : TaskStreams[_], buildDirectory : File, exeName : String, linkPaths : Seq[File], linkLibraries : Seq[String], inputFiles : Set[File] ) : FunctionWithResultPath
     }
+    
+    case class Environment( val name : String, val compiler : Compiler )
     
     class GccCompiler( val compilerPath : File, val archiverPath : File, val linkerPath : File ) extends Compiler
     {
@@ -98,13 +91,32 @@ package native
     }
 }
 
-object TestBuild extends Build
-{   
+import scala.collection.{mutable, immutable}
+
+abstract class NativeBuild extends Build
+{
+    private val projectsBuffer = mutable.ArrayBuffer[Project]()
+    
+    override def projects: Seq[Project] = projectsBuffer
+    def registerProject( p : Project ) =
+    {
+        println( "Registering: " + p.id )
+        projectsBuffer.append(p)
+    }
+    
+    implicit val nbuild = this
+/*}
+
+object TestBuild extends NativeBuild
+{*/ 
+    def configurations : Set[native.Environment]
+
     type Sett = Project.Setting[_]
     //val compilerExe = SettingKey[File]("compiler", "Path to compiler executable")
     //val archiveExe = SettingKey[File]("archive", "Path to archive executable")
     
-    val buildConfig = SettingKey[Option[native.BuildConfig]]("build-config")
+    val compiler = TaskKey[native.Compiler]("native-compiler")
+    val buildEnvironment = SettingKey[Option[native.Environment]]("build-environment")
     val rootBuildDirectory = TaskKey[File]("root-build-dir", "Build root directory (for the config, not the project)")
     val projectBuildDirectory = TaskKey[File]("project-build-dir", "Build directory for this config and project")
     val stateCacheDirectory = TaskKey[File]("state-cache-dir", "Build state cache directory")
@@ -120,35 +132,25 @@ object TestBuild extends Build
     val nativeRun = TaskKey[Unit]("native-run", "Perform a native run of this project" )
     val testProject = TaskKey[Project]("test-project", "The test sub-project for this project")
     
-    val compiler = SettingKey[native.Compiler]("compiler", "The compiler to use for this project")
+    val buildOptsParser = Space ~> configurations.map( x => token(x.name) ).reduce(_ | _)
     
-    val modeOption : Parser[String] = token("debug") | token("release")
-    val compilerOption : Parser[String] = token("gcc") | token("clang")
-    val platformOption  : Parser[String] = token("linux") | token("beaglebone")
-    
-    val buildOptsParser =
-    (
-        (Space ~> modeOption) ~
-        (Space ~> compilerOption) ~
-        (Space ~> platformOption)
-    )
-    
-    def setBuildConfigCommand = Command("set-build-config")(_ => buildOptsParser)
+    def setBuildConfigCommand = Command("build-environment")(_ => buildOptsParser)
     {
-        (state, args) =>
+        (state, envName) =>
    
-        val ((mode, compiler), platform) = args
-        val bc = new native.BuildConfig( mode.mkString, compiler.mkString, platform.mkString )
+        val envDict = configurations.map( x => (x.name, x) ).toMap
+        val env = envDict(envName)
+        
         val extracted : Extracted = Project.extract(state)
         
         // Reconfigure all projects to this new build config
-        val buildConfigUpdateCommands = extracted.structure.allProjectRefs.map
+        val buildEnvironmentUpdateCommands = extracted.structure.allProjectRefs.map
         { pref =>
         
-            (buildConfig in pref) := Some(bc)
+            (buildEnvironment in pref) := Some(env)
         }
         
-        extracted.append( buildConfigUpdateCommands, state )
+        extracted.append( buildEnvironmentUpdateCommands, state )
     }
    
     def buildCommand = Command.command("build")
@@ -201,32 +203,31 @@ object TestBuild extends Build
             dependencies : => Seq[ClasspathDep[ProjectReference]] = Nil,
             delegates : => Seq[ProjectReference] = Nil,
             settings : => Seq[sbt.Project.Setting[_]] = Nil,
-            configurations : Seq[Configuration] = Configurations.default ) =
+            configurations : Seq[Configuration] = Configurations.default )( implicit nb : NativeBuild ) =
         {
             val defaultSettings = Seq(
                 name                := id,
             
                 commands            ++= Seq( buildCommand, setBuildConfigCommand ),
                 
-                //buildConfig         := None,
-                buildConfig         := Some(new native.BuildConfig( "release", "gcc", "linux" )),
-            
-                compiler            := new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ),
+                buildEnvironment    := None,
                 
-                rootBuildDirectory      <<= (baseDirectory, buildConfig) map
-                { case (bd, bco) =>
+                rootBuildDirectory  <<= (baseDirectory, buildEnvironment) map
+                { case (bd, beo) =>
                 
-                    if ( bco.isEmpty ) error( "Please set a build configuration using set-build-config" )
-                    val bc = bco.get
+                    if ( beo.isEmpty ) error( "Please set a build configuration using set-build-config" )
+                    val be = beo.get
                 
-                    val dir = bd / "sbtbuild" / bc.platform / bc.compiler / bc.mode
+                    val dir = bd / "sbtbuild" / be.name
                     
                     IO.createDirectory(dir)
                     
                     dir
                 },
                 
-                projectBuildDirectory      <<= (rootBuildDirectory, name) map
+                compiler            <<= (buildEnvironment) map { _.get.compiler },
+                
+                projectBuildDirectory <<= (rootBuildDirectory, name) map
                 { case (rbd, n) =>
                 
                     val dir = rbd / n
@@ -285,7 +286,10 @@ object TestBuild extends Build
                 }
             )
             
-            Project( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
+            val p = Project( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
+            nb.registerProject(p)
+            
+            p
         }
     }
     
@@ -368,23 +372,32 @@ object TestBuild extends Build
             val mainLibrary = StaticLibrary( id=_name, base=file("./"), settings=Seq( projectDirectory := _projectDirectory ) ++ _settings )
                     
             
-            // TODO: This sub-library test infrastructure doesn't seem to be working.
-            // Add test in as a set of extra keys into the main build instead
-            /*val testDir = (_projectDirectory / "test")
-            println( testDir, testDir.exists )
+            val testDir = (_projectDirectory / "test")
             if ( testDir.exists )
             {
                 val testName = _name + "_test"
-                lazy val testLibrary = NativeExecutable2( testName, testDir,
-                    Seq(
-                    ) ++ _settings )
-                testLibrary
+                
+                NativeExecutable2( testName, testDir, _settings ++ Seq
+                (
+                    includeDirectories  <++= (includeDirectories in mainLibrary),
+                    objectFiles         <+= (nativeCompile in mainLibrary)
+                ) ) 
             }
-            else*/ mainLibrary
+            
+            mainLibrary
         }
     }
+}
+
+
+object TestBuild extends NativeBuild
+{
+    override lazy val configurations = Set[native.Environment](
+        new native.Environment( "gcc/linux/PC", new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ) ),
+        new native.Environment( "clang/linux/PC", new native.GccCompiler( file("/bin/clang++"), file("/bin/llvm-ar"), file("/bin/clang++") ) )
+    )
         
-    lazy val utility = StaticLibrary( id="utility", base=file("./"),
+    val utility = StaticLibrary( id="utility", base=file("./"),
         settings=Seq
         (
             name                := "utility",
@@ -392,7 +405,7 @@ object TestBuild extends Build
         )
     )
    
-    lazy val datastructures = StaticLibrary( id="datastructures", base=file("./"),
+    val datastructures = StaticLibrary( id="datastructures", base=file("./"),
         settings=Seq
         (
             name                := "datastructures",
@@ -402,7 +415,7 @@ object TestBuild extends Build
     )
     
     
-    lazy val functionalcollections2 = StaticLibrary2(
+    val functionalcollections2 = StaticLibrary2(
         "functionalcollections2", file( "./libraries/functionalcollections" ),
         Seq
         (
@@ -410,7 +423,7 @@ object TestBuild extends Build
         )
     )
     
-    lazy val functionalcollections = StaticLibrary( id="functionalcollections", base=file("./"),
+    val functionalcollections = StaticLibrary( id="functionalcollections", base=file("./"),
         settings=Seq
         (
             name                := "functionalcollections",
@@ -419,15 +432,17 @@ object TestBuild extends Build
         )
     )
     
-    lazy val simple = NativeExecutable2( "simple", file( "./applications/simple" ),
+    val simple = NativeExecutable2( "simple", file( "./applications/simple" ),
         Seq
         (
             includeDirectories  += file( "./libraries/utility/interface" ),
             objectFiles         <+= (nativeCompile in utility)
+            //linkerInputs <+= (staticLibrary in utility)
         )
     )
     
-    lazy val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, functionalcollections, simple )
+    // Since preventing the import of scala default settings, there is no compile on a raw nativeproject and so aggregate is a bit useless
+    val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, functionalcollections, simple )
     
     
 }
