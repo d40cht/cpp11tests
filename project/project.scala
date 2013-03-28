@@ -100,6 +100,7 @@ package native
 
 object TestBuild extends Build
 {   
+    type Sett = Project.Setting[_]
     //val compilerExe = SettingKey[File]("compiler", "Path to compiler executable")
     //val archiveExe = SettingKey[File]("archive", "Path to archive executable")
     
@@ -203,10 +204,12 @@ object TestBuild extends Build
             configurations : Seq[Configuration] = Configurations.default ) =
         {
             val defaultSettings = Seq(
+                name                := id,
             
                 commands            ++= Seq( buildCommand, setBuildConfigCommand ),
                 
-                buildConfig         := None,
+                //buildConfig         := None,
+                buildConfig         := Some(new native.BuildConfig( "release", "gcc", "linux" )),
             
                 compiler            := new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") ),
                 
@@ -282,7 +285,7 @@ object TestBuild extends Build
                 }
             )
             
-            Project( id, base, aggregate, dependencies, delegates, Defaults.defaultSettings ++ (defaultSettings ++ settings), configurations )
+            Project( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
     }
     
@@ -306,7 +309,8 @@ object TestBuild extends Build
                     
                     blf.runIfNotCached( scd, ofs )
                 },
-                (compile in Compile) <<= (compile in Compile) dependsOn (nativeCompile)
+                //(compile in Compile) <<= (compile in Compile) dependsOn (nativeCompile)
+                compile <<= nativeCompile map { nc => sbt.inc.Analysis.Empty }
                 
                 
             )
@@ -333,14 +337,17 @@ object TestBuild extends Build
                     
                     blf.runIfNotCached( scd, ofs )
                 },
-                nativeRun <<= (nativeCompile, streams) map
-                { case (nbExe, s) =>
+                compile <<= nativeCompile map { nc => sbt.inc.Analysis.Empty },
+                run <<= inputTask { (argTask: TaskKey[Seq[String]]) =>
                     
-                    val res = nbExe.toString !
+                    (argTask, nativeCompile, streams) map
+                    { case (args, nbExe, s) =>
                     
-                    if ( res != 0 ) error( "Non-zero exit code: " + res.toString )
-                },
-                (compile in Compile) <<= (compile in Compile) dependsOn (nativeCompile)
+                        val res = (nbExe.toString + " " + args.mkString(" ")) !
+                    
+                        if ( res != 0 ) error( "Non-zero exit code: " + res.toString )
+                    }
+                }
             )
             NativeProject( id, base, aggregate, dependencies, delegates, defaultSettings ++ settings, configurations )
         }
@@ -350,11 +357,7 @@ object TestBuild extends Build
     {
         def apply( _name : String, _projectDirectory : File, _settings : => Seq[sbt.Project.Setting[_]] ) =
         {
-            println( "Building: " + _name )
-            NativeExecutable( id=_name, base=file("./"),
-                settings = _settings ++ Seq(
-                    name := _name,
-                    projectDirectory := _projectDirectory ) )
+            NativeExecutable( id=_name, base=file("./"), settings=Seq( projectDirectory := _projectDirectory ) ++ _settings )
         }
     }
     
@@ -362,15 +365,12 @@ object TestBuild extends Build
     {
         def apply( _name : String, _projectDirectory : File, _settings : => Seq[sbt.Project.Setting[_]] ) =
         {
-            lazy val mainLibrary = StaticLibrary( id=_name, base=file("./"),
-                settings = _settings ++ Seq(
-                    name := _name,
-                    projectDirectory := _projectDirectory ) )
+            val mainLibrary = StaticLibrary( id=_name, base=file("./"), settings=Seq( projectDirectory := _projectDirectory ) ++ _settings )
                     
             
             // TODO: This sub-library test infrastructure doesn't seem to be working.
             // Add test in as a set of extra keys into the main build instead
-            val testDir = (_projectDirectory / "test")
+            /*val testDir = (_projectDirectory / "test")
             println( testDir, testDir.exists )
             if ( testDir.exists )
             {
@@ -380,7 +380,7 @@ object TestBuild extends Build
                     ) ++ _settings )
                 testLibrary
             }
-            else mainLibrary
+            else*/ mainLibrary
         }
     }
         
