@@ -74,6 +74,27 @@ void quickSortTest()
     }
 }
 
+void heapTest()
+{  
+    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6 };
+
+    heap<int> h;
+    for ( el : input )
+    {
+        h.push( el );
+    }
+    
+    int last = std::numeric_limits<int>::min();
+    for ( auto i = 0; i < input.size(); ++i )
+    {
+        CHECK( !h.empty() );
+        auto next = h.pop();
+        CHECK( next >= last );
+        last = next;
+    }
+    CHECK( h.empty() );
+}
+
 int main( int argc, char** argv )
 {
     std::cerr << "Running data structure tests" << std::endl;

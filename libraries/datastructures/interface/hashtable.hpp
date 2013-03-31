@@ -51,6 +51,18 @@ private:
             return false;
         }
         
+        V get( const K& key )
+        {
+            for ( size_t i = 0; i < m_slots.size(); ++i )
+            {
+                if ( m_slots[i].first == key )
+                {
+                    return m_slots[i].second;
+                }
+            }
+            throwing_assert( false, "Key not present in hashtable" );
+        }
+        
     private:    
         std::vector<std::pair<K, V>> m_slots;
     };
