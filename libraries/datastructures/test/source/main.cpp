@@ -131,6 +131,30 @@ void openAddressingHashTest()
     CHECK( !h.find(9) );
     CHECK( !h.find(10) );
     
+    CHECK( h.erase(6) );
+    CHECK( h.erase(7) );
+    CHECK( h.erase(8) );
+    CHECK_EQUAL( h.size(), 0U );
+    
+    h.insert( std::make_pair( 21, std::string("bar") ) );
+    h.insert( std::make_pair( 22, std::string("bippy") ) );
+    h.insert( std::make_pair( 23, std::string("dingus") ) );
+    
+    CHECK_EQUAL( h.size(), 3U );
+    CHECK( !h.find(1) );
+    CHECK( !h.find(2) );
+    CHECK( !h.find(3) );
+    CHECK( !h.find(4) );
+    CHECK( !h.find(5) );
+    CHECK( !h.find(6) );
+    CHECK( !h.find(7) );
+    CHECK( !h.find(8) );
+    CHECK( !h.find(9) );
+    CHECK( !h.find(10) );
+    CHECK( h.find(21) );
+    CHECK( h.find(22) );
+    CHECK( h.find(23) );
+    
 }
 
 void mergeSortTest()
