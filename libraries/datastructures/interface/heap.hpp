@@ -16,8 +16,8 @@ public:
     
     T pop()
     {
-        auto next = m_storage.first;
-        m_storage.first = m_storage.last;
+        auto next = m_storage.front();
+        m_storage.front() = m_storage.back();
         m_storage.pop_back();
         
         if ( !empty() )
@@ -39,7 +39,15 @@ public:
     }
 
 private:
-    T& foiGet( fromOneIndex_t index ) { return m_storage[index-1]; }
+    T& get( fromOneIndex_t index ) { return m_storage[index-1]; }
+    
+    void validate()
+    {
+        for ( fromOneIndex_t i = 2; i <= size(); ++i )
+        {
+            CHECK( !m_cmp( get(i), get(i/2) ) );
+        }
+    }
     
     // Note: both bubble_up and bubble_down accept indices starting from 1
     // in order to simplify the maths. But they require the
@@ -48,11 +56,11 @@ private:
     {
         while ( childIndex != 1 )
         {
-            auto parentIndex = index / 2;
+            auto parentIndex = childIndex / 2;
             T& parent = get(parentIndex);
             T& child = get(childIndex);
             
-            if ( Comparison( child, parent ) )
+            if ( m_cmp( child, parent ) )
             {
                 std::swap( child, parent );
                 childIndex = parentIndex;
@@ -63,31 +71,45 @@ private:
     
     void bubble_down( fromOneIndex_t parentIndex )
     {
-        while ( parentIndex <= m_storage.size() )
+        while ( parentIndex < size() )
         {
-            auto childIndex1 = index * 2;
-            auto childIndex2 = childIndex1 + 1;
+            auto childIndex1 = parentIndex * 2;
             
-            T& parent = get(parentIndex);
-            T& child1 = get(childIndex1);
-            T& child2 = get(childIndex2)
-            
-            std::pair<fromOneIndex_t, T&> cmp = Comparison( child1, child2 ) ?
-                std::make_pair( childIndex1, child1 ) :
-                std::make_pair( childIndex2, child2 );
-            
-            
-            if ( Comparison( cmp.second, parent ) )
+            if ( childIndex1 <= size() )
             {
-                std::swap( cmp.second, parent );
-                parentIndex = cmp.second;
+                auto childIndex2 = childIndex1 + 1;
+                
+                // Quick hack to deal with there being only a child1 remaining
+                if ( childIndex2 > size() ) childIndex2 = childIndex1;
+                
+                T& parent = get(parentIndex);
+                
+                T& child1 = get(childIndex1);
+                T& child2 = get(childIndex2);
+                
+                typedef std::pair<fromOneIndex_t, T&> cmp_t;
+                
+                cmp_t cmp = m_cmp( child1, child2 ) ?
+                    cmp_t( childIndex1, child1 ) :
+                    cmp_t( childIndex2, child2 );
+                
+                
+                if ( m_cmp( cmp.second, parent ) )
+                {
+                    std::swap( cmp.second, parent );
+                    parentIndex = cmp.first;
+                }
+                else break;
             }
             else break;
         }
+        
+        validate();
     }
     
 private:
-    std::vector<T> m_storage;
+    Comparison      m_cmp;
+    std::vector<T>  m_storage;
 };
 
 

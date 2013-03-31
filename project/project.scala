@@ -6,8 +6,8 @@ object TestBuild extends NativeBuild
     lazy val baseGcc = new native.GccCompiler( file("/usr/bin/g++-4.7"), file("/usr/bin/ar"), file("/usr/bin/g++-4.7") )
     
     override lazy val configurations = Set[native.Environment](
-        new native.Environment( "release/Gcc/Linux/PC", baseGcc.copy( compileFlags="-O2 -Wall -Wextra" ) ),
-        new native.Environment( "debug/Gcc/Linux/PC", baseGcc.copy( compileFlags="-g -Wall -Wextra" ) )
+        new native.Environment( "release/Gcc/Linux/PC", baseGcc.copy( compileFlags="-std=c++11 -O2 -Wall -Wextra" ) ),
+        new native.Environment( "debug/Gcc/Linux/PC", baseGcc.copy( compileFlags="-std=c++11 -g -Wall -Wextra" ) )
     )
         
     val utility = StaticLibrary( id="utility", base=file("./"),
@@ -20,26 +20,17 @@ object TestBuild extends NativeBuild
    
     val datastructures = StaticLibrary2( 
         "datastructures", file( "./libraries/datastructures" ),
-        settings=Seq
-        (
-            includeDirectories  += file( "./libraries/utility/interface" )
-        )
-    )
-    
-    
-    val functionalcollections2 = StaticLibrary2(
-        "functionalcollections2", file( "./libraries/functionalcollections" ),
         Seq
         (
             includeDirectories  += file( "./libraries/utility/interface" )
         )
     )
     
-    val functionalcollections = StaticLibrary( id="functionalcollections", base=file("./"),
-        settings=Seq
+    
+    val functionalcollections = StaticLibrary2(
+        "functionalcollections", file( "./libraries/functionalcollections" ),
+        Seq
         (
-            name                := "functionalcollections",
-            projectDirectory    := file( "./libraries/functionalcollections" ),
             includeDirectories  += file( "./libraries/utility/interface" )
         )
     )

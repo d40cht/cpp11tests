@@ -11,7 +11,6 @@ inline void check_equal( const char* FILE, int line, const T& lhs, const T& rhs 
     }
 }
 
-template<typename T>
 inline void check( const char* FILE, int line, bool predicate, const char* predicateString )
 {
     if ( !predicate )
