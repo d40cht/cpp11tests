@@ -18,11 +18,10 @@ object TestBuild extends NativeBuild
         )
     )
    
-    val datastructures = StaticLibrary( id="datastructures", base=file("./"),
+    val datastructures = StaticLibrary2( 
+        "datastructures", file( "./libraries/datastructures" ),
         settings=Seq
         (
-            name                := "datastructures",
-            projectDirectory    := file( "./libraries/datastructures" ),
             includeDirectories  += file( "./libraries/utility/interface" )
         )
     )
