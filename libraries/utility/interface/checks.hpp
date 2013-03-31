@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-template<typename T>
-inline void check_equal( const char* FILE, int line, const T& lhs, const T& rhs )
+template<typename A, typename B>
+inline void check_equal( const char* FILE, int line, const A& lhs, const B& rhs )
 {
     if ( lhs != rhs )
     { 

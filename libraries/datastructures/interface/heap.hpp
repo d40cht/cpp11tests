@@ -1,3 +1,5 @@
+#pragma once
+
 #include <algorithm>
 
 template<typename T, typename Comparison=std::less<T>>
