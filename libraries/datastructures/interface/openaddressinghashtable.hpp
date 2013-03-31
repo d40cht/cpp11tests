@@ -64,7 +64,7 @@ public:
     {
         size_t index = findByIndex(k);
         throwing_assert( index != invalidIndex, "Key not found in get" );
-        return m_cellData(index).second;
+        return m_cellData[index].second;
     }
     
     bool erase( const K& k )

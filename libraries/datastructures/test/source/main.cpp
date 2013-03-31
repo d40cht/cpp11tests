@@ -83,7 +83,7 @@ void openAddressingHashTest()
     CHECK( h.find(2) );
     CHECK( h.find(3) );
     CHECK( h.find(4) );
-    CHECK( h.find(5) );
+    CHECK_EQUAL( h.get(5), std::string("foo") );
     CHECK( h.find(6) );
     CHECK( h.find(7) );
     CHECK( h.find(8) );
@@ -136,9 +136,9 @@ void openAddressingHashTest()
     CHECK( h.erase(8) );
     CHECK_EQUAL( h.size(), 0U );
     
-    h.insert( std::make_pair( 21, std::string("bar") ) );
-    h.insert( std::make_pair( 22, std::string("bippy") ) );
-    h.insert( std::make_pair( 23, std::string("dingus") ) );
+    h.insert( std::make_pair( 21, std::string("baroo") ) );
+    h.insert( std::make_pair( 22, std::string("bippyoo") ) );
+    h.insert( std::make_pair( 23, std::string("dingusoo") ) );
     
     CHECK_EQUAL( h.size(), 3U );
     CHECK( !h.find(1) );
@@ -154,6 +154,10 @@ void openAddressingHashTest()
     CHECK( h.find(21) );
     CHECK( h.find(22) );
     CHECK( h.find(23) );
+    
+    CHECK_EQUAL( h.get(21), std::string("baroo") );
+    CHECK_EQUAL( h.get(22), std::string("bippyoo") );
+    CHECK_EQUAL( h.get(23), std::string("dingusoo") );
     
 }
 
