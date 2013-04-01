@@ -3,6 +3,7 @@
 #include "mergesort.hpp"
 #include "quicksort.hpp"
 #include "heap.hpp"
+#include "bst.hpp"
 
 #include <iostream>
 #include <algorithm>
@@ -212,6 +213,23 @@ void heapTest()
     CHECK( h.empty() );
 }
 
+void unbalancedBSTTest()
+{
+    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6 };
+    
+    typedef unbalanced::BST<int, int> bst_t;
+    bst_t bst;
+    for ( int el : input )
+    {
+        bst.insert( std::make_pair( el, el ) );
+        
+        const bst_t::elem_t* fel = bst.find( el );
+        CHECK( fel != NULL );
+        CHECK( fel->first == el );
+
+    }
+}
+
 int main( int /*argc*/, char** /*argv*/ )
 {
     std::cerr << "Running data structure tests" << std::endl;
@@ -220,6 +238,7 @@ int main( int /*argc*/, char** /*argv*/ )
     hashTest();
     openAddressingHashTest();
     heapTest();
+    unbalancedBSTTest();
     std::cerr << "Complete" << std::endl;
 }
 
