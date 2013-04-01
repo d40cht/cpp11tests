@@ -2,7 +2,7 @@
 
 #include <queue>
 
-namespace unbalanced
+namespace balanced
 {
     template<typename K, typename V> class BST;
 
@@ -14,7 +14,7 @@ namespace unbalanced
         typedef std::pair<K, V> elem_t;
         
     public:
-        Node( const elem_t& value ) : m_value(value), m_left(NULL), m_right(NULL)
+        Node( const elem_t& value ) : m_value(value), m_height(0), m_left(NULL), m_right(NULL)
         {
         }
         
@@ -42,8 +42,18 @@ namespace unbalanced
                 m_value = element;
                 return false;
             }
-            else if ( element.first < m_value.first ) return m_left->insert( m_left, element );
-            else return m_right->insert( m_right, element );
+            else if ( element.first < m_value.first )
+            {
+                bool insertion = m_left->insert( m_left, element );
+                updateHeight();
+                return insertion;
+            }
+            else
+            {
+                bool insertion = m_right->insert( m_right, element );
+                updateHeight();
+                return insertion;
+            }
         }
         
         // Returns true for an erase, false for key not found
@@ -52,11 +62,15 @@ namespace unbalanced
             if ( this == NULL ) return false;
             else if ( key < m_value.first )
             {
-                return m_left->erase( m_left, key );
+                bool erased = m_left->erase( m_left, key );
+                updateHeight();
+                return erased;
             }
             else if ( key > m_value.first )
             {
-                return m_right->erase( m_right, key );
+                bool erased = m_right->erase( m_right, key );
+                updateHeight();
+                return erased;
             }
             else
             {
@@ -90,6 +104,7 @@ namespace unbalanced
                     m_value = iter->m_value;
                     (*parentPointer) = iter->m_right;
                     delete iter;
+                    updateHeight();
                 }
                 
                 return true;
@@ -97,9 +112,18 @@ namespace unbalanced
         }
         
         const elem_t& get() { return m_value; }
+        
+    private:
+        void updateHeight()
+        {
+            size_t lh = m_left == NULL ? 0 : m_left->m_height + 1;
+            size_t rh = m_right == NULL ? 0 : m_right->m_height + 1;
+            m_height = std::max( lh, rh );
+        }
                 
     private:
         elem_t          m_value;
+        size_t          m_height;
         Node<K, V>*     m_left;
         Node<K, V>*     m_right;
         
@@ -168,6 +192,10 @@ namespace unbalanced
                         q.push( head->m_right );
                         CHECK( head->m_value.first < head->m_right->m_value.first );
                     }
+                    
+                    size_t lh = head->m_left == NULL ? 0 : head->m_left->m_height + 1;
+                    size_t rh = head->m_right == NULL ? 0 : head->m_right->m_height + 1;
+                    CHECK_EQUAL( head->m_height, std::max( lh, rh ) );
                 }
             }
             
