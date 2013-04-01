@@ -29,11 +29,21 @@ namespace unbalanced
             }
         }
         
-        void insert( self_t*& parentPointer, const elem_t& element )
+        // Returns true for an insert, false for an overwrite
+        bool insert( self_t*& parentPointer, const elem_t& element )
         {
-            if ( this == NULL ) parentPointer = new Node( element );
-            else if ( element.first < m_value.first ) m_left->insert( m_left, element );
-            else m_right->insert( m_right, element );
+            if ( this == NULL )
+            {
+                parentPointer = new Node( element );
+                return true;
+            }
+            else if ( element.first == m_value.first )
+            {
+                m_value = element;
+                return false;
+            }
+            else if ( element.first < m_value.first ) return m_left->insert( m_left, element );
+            else return m_right->insert( m_right, element );
         }
         
         void erase( self_t*& parentPointer, const K& key )
@@ -64,7 +74,7 @@ namespace unbalanced
         {
         }
         
-        const elem_t* find( const K& key )
+        const elem_t* find( const K& key ) const
         {
             node_t* node = m_root->find( key );
             if ( node == NULL ) return NULL;
@@ -73,8 +83,7 @@ namespace unbalanced
         
         void insert( const elem_t& elem )
         {
-            m_root->insert( m_root, elem );
-            m_size++;
+            if ( m_root->insert( m_root, elem ) ) m_size++;
             validate();
         }
         
@@ -84,6 +93,8 @@ namespace unbalanced
             m_size--;
             validate();
         }
+        
+        size_t size() const { return m_size; }
         
     private:
         void validate()
@@ -95,14 +106,23 @@ namespace unbalanced
             size_t count = 0;
             while ( !q.empty() )
             {
-                auto first = q.front();
+                auto head = q.front();
                 q.pop();
                 
-                if ( first != NULL )
+                if ( head != NULL )
                 {
                     count += 1;
-                    q.push( first->m_left );
-                    q.push( first->m_right );
+                    if ( head->m_left != NULL )
+                    {
+                        q.push( head->m_left );
+                        CHECK( head->m_left->m_value.first < head->m_value.first );
+                        
+                    }
+                    if ( head->m_right != NULL )
+                    {
+                        q.push( head->m_right );
+                        CHECK( head->m_value.first < head->m_right->m_value.first );
+                    }
                 }
             }
             
