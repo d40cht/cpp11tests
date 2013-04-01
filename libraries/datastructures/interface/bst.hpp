@@ -46,8 +46,54 @@ namespace unbalanced
             else return m_right->insert( m_right, element );
         }
         
-        void erase( self_t*& parentPointer, const K& key )
+        // Returns true for an erase, false for key not found
+        bool erase( self_t*& parentPointer, const K& key )
         {
+            if ( this == NULL ) return false;
+            else if ( key < m_value.first )
+            {
+                return m_left->erase( m_left, key );
+            }
+            else if ( key > m_value.first )
+            {
+                return m_right->erase( m_right, key );
+            }
+            else
+            {
+                if ( m_left == NULL && m_right == NULL )
+                {
+                    parentPointer = NULL;
+                    delete this;
+                }
+                else if ( m_left == NULL )
+                {
+                    parentPointer = m_right;
+                    delete this;
+                }
+                else if ( m_right == NULL )
+                {
+                    parentPointer = m_left;
+                    delete this;
+                }
+                else
+                {
+                    // Swap with leftmost value in right subtree, then delete
+                    // that leftmost node (which may have a right-pointer, so
+                    // we need to keep that as appropriate).
+                    self_t** parentPointer = &m_right;
+                    self_t* iter = m_right;
+                    while ( iter->m_left != NULL )
+                    {
+                        parentPointer = &iter->m_left;
+                        iter = iter->m_left;
+                    }
+                    m_value = iter->m_value;
+                    (*parentPointer) = iter->m_right;
+                    delete iter;
+                }
+                
+                return true;
+            }
         }
         
         const elem_t& get() { return m_value; }
@@ -89,8 +135,7 @@ namespace unbalanced
         
         void erase( const K& key )
         {
-            m_root->erase( m_root, key );
-            m_size--;
+            if ( m_root->erase( m_root, key ) ) m_size--;
             validate();
         }
         

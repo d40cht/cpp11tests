@@ -216,7 +216,8 @@ void heapTest()
 
 void unbalancedBSTTest()
 {
-    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6 };
+    //std::vector<int> input = { 1, 2, 3, 0 };
+    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10 };
     
     
     typedef unbalanced::BST<int, int> bst_t;
@@ -233,6 +234,16 @@ void unbalancedBSTTest()
         CHECK_EQUAL( bst.size(), truth.size() );
 
     }
+    
+    bst.erase(1);
+    
+    /*for ( int el : input )
+    {
+        bst.erase( el );
+        truth.erase( el );
+        
+        CHECK_EQUAL( bst.size(), truth.size() );
+    }*/
 }
 
 int main( int /*argc*/, char** /*argv*/ )
