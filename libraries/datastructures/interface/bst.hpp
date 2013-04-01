@@ -29,6 +29,26 @@ namespace balanced
             }
         }
         
+        void rotl( self_t*& parentPointer )
+        {
+            self_t* oldRight = m_right;
+            m_right = oldRight->m_left;
+            oldRight->m_left = this;
+            parentPointer = oldRight;
+            updateHeight();
+            oldRight->updateHeight();
+        }
+        
+        void rotr( self_t*& parentPointer )
+        {
+            self_t* oldLeft = m_left;
+            m_left = oldLeft->m_right;
+            oldLeft->m_right = this;
+            parentPointer = oldLeft;
+            updateHeight( false );
+            oldLeft->updateHeight( false );
+        }
+        
         // Returns true for an insert, false for an overwrite
         bool insert( self_t*& parentPointer, const elem_t& element )
         {
@@ -45,13 +65,13 @@ namespace balanced
             else if ( element.first < m_value.first )
             {
                 bool insertion = m_left->insert( m_left, element );
-                updateHeight();
+                updateHeight( true );
                 return insertion;
             }
             else
             {
                 bool insertion = m_right->insert( m_right, element );
-                updateHeight();
+                updateHeight( true );
                 return insertion;
             }
         }
@@ -63,13 +83,13 @@ namespace balanced
             else if ( key < m_value.first )
             {
                 bool erased = m_left->erase( m_left, key );
-                updateHeight();
+                updateHeight(true);
                 return erased;
             }
             else if ( key > m_value.first )
             {
                 bool erased = m_right->erase( m_right, key );
-                updateHeight();
+                updateHeight(true);
                 return erased;
             }
             else
@@ -104,7 +124,7 @@ namespace balanced
                     m_value = iter->m_value;
                     (*parentPointer) = iter->m_right;
                     delete iter;
-                    updateHeight();
+                    updateHeight(true);
                 }
                 
                 return true;
@@ -114,11 +134,23 @@ namespace balanced
         const elem_t& get() { return m_value; }
         
     private:
-        void updateHeight()
+        void updateHeight( bool balance )
         {
             size_t lh = m_left == NULL ? 0 : m_left->m_height + 1;
             size_t rh = m_right == NULL ? 0 : m_right->m_height + 1;
             m_height = std::max( lh, rh );
+            
+            if ( balance )
+            {
+                int balanceFactor = (lh - rh);
+                
+                if ( balanceFactor < -1 )
+                {
+                }
+                else if ( balanceFactor > 1 )
+                {
+                }
+            }
         }
                 
     private:
