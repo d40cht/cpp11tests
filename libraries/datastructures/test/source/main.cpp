@@ -232,9 +232,6 @@ void heapTest()
 
 void balancedBSTTest()
 {
-    
-    //std::vector<int> input = { 4, 1, 2, 3, 6, 8, 8, 0, 0 };
-    
     auto treeTest = []( const std::vector<int> input ) -> void
     {
         typedef balanced::BST<int, int> bst_t;
