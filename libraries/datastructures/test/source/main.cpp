@@ -6,8 +6,24 @@
 #include "bst.hpp"
 
 #include <set>
+#include <random>
 #include <iostream>
 #include <algorithm>
+
+std::vector<int> randVec( int min, int max, size_t count )
+{
+    //std::random_device rd;
+    //std::mt19937 gen( rd() );
+    std::mt19937 gen(0xdeadbeef);
+    std::uniform_int_distribution<int> unif(min, max);
+    std::vector<int> series;
+    for ( size_t i = 0; i < count; ++i )
+    {
+        series.push_back( unif(gen) );
+    }
+    
+    return series;
+}
 
 void hashTest()
 {
@@ -216,36 +232,61 @@ void heapTest()
 
 void balancedBSTTest()
 {
-    std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10 };
+    
     //std::vector<int> input = { 4, 1, 2, 3, 6, 8, 8, 0, 0 };
     
-    typedef balanced::BST<int, int> bst_t;
-    std::set<int> truth;
-    bst_t bst;
-    for ( int el : input )
+    auto treeTest = []( const std::vector<int> input ) -> void
     {
-        //std::cerr << "Inserting: " << el << std::endl;
-        bst.insert( std::make_pair( el, el ) );
-        truth.insert( el );
-        
-        const bst_t::elem_t* fel = bst.find( el );
-        CHECK( fel != NULL );
-        CHECK( fel->first == el );
-        CHECK_EQUAL( bst.size(), truth.size() );
+        typedef balanced::BST<int, int> bst_t;
+        std::set<int> truth;
+        bst_t bst;
+        for ( int el : input )
+        {
+            //std::cerr << "Inserting: " << el << std::endl;
+            bst.insert( std::make_pair( el, el ) );
+            truth.insert( el );
+            
+            const bst_t::elem_t* fel = bst.find( el );
+            CHECK( fel != NULL );
+            CHECK( fel->first == el );
+            CHECK_EQUAL( bst.size(), truth.size() );
 
+        }
+        
+        for ( int el : input )
+        {
+            //std::cerr << "Erasing: " << el << std::endl;
+            bst.erase( el );
+            truth.erase( el );
+            
+            CHECK_EQUAL( bst.size(), truth.size() );
+        }
+    };
+    
+    {
+        std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10 };
+        treeTest( input );
     }
     
-    for ( int el : input )
     {
-        //std::cerr << "Erasing: " << el << std::endl;
-        //bst.debug();
-        bst.erase( el );
-        truth.erase( el );
-        //std::cerr << "After" << std::endl;
-        //bst.debug();
-        
-        CHECK_EQUAL( bst.size(), truth.size() );
+        std::vector<int> input = { 5, 4, 3, 2, 1 };
+        treeTest( input );
     }
+    
+    {
+        std::vector<int> input = { 1, 2, 3, 4, 5 };
+        treeTest( input );
+    }
+    
+    {
+        std::vector<int> input = { 8, 17, 22, 7, 14, 12, 9, 3, 5, 6, 6, 2, 1, 4, 7, 16, 13, 0 };
+        treeTest( input );
+    }   
+    
+    treeTest( randVec( 0, 50, 1000 ) );
+    treeTest( randVec( 0, 1000, 1000 ) );
+    treeTest( randVec( 0, 5, 1000 ) );
+    treeTest( randVec( 0, 1000, 10000 ) );
 }
 
 int main( int /*argc*/, char** /*argv*/ )

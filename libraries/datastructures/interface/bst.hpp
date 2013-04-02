@@ -118,18 +118,6 @@ namespace balanced
                     m_value = m_right->eraseSwap( m_right );
                     updateHeight();
                     rebalance( parentPointer, true );
-                    /*self_t** parentPointer = &m_right;
-                    self_t* iter = m_right;
-                    while ( iter->m_left != NULL )
-                    {
-                        parentPointer = &iter->m_left;
-                        iter = iter->m_left;
-                    }
-                    m_value = iter->m_value;
-                    (*parentPointer) = iter->m_right;
-                    updateHeight();
-                    rebalance( *parentPointer, true );
-                    delete iter;*/
                 }
                 
                 return true;
@@ -162,13 +150,13 @@ namespace balanced
         
         const elem_t& get() { return m_value; }
         
-        void debug( size_t indent ) const
+        void debug( std::string indent ) const
         {
-            if ( m_left != NULL ) m_left->debug( indent+1 );
-            for ( size_t i = 0; i < (indent*3); ++i ) std::cerr << " ";
-            std::cerr << m_value.first << std::endl;
-            
-            if ( m_right != NULL ) m_right->debug( indent+1 );
+            std::cerr << indent << m_value.first << std::endl;
+            std::string newIndent;
+            for ( char c : indent ) newIndent.push_back(' ');
+            if ( m_left != NULL ) m_left->debug( newIndent + "l->" );
+            if ( m_right != NULL ) m_right->debug( newIndent + "r->" );
         }
         
     private:
@@ -188,6 +176,7 @@ namespace balanced
         
         void rebalance( self_t*& inboundPointer, bool isDelete )
         {
+            //isDelete = false;
             auto th = childHeights();
             auto lh = th.first;
             auto rh = th.second;
@@ -199,8 +188,13 @@ namespace balanced
                 auto rth = m_right->childHeights();
                 int rbf = rth.first - rth.second;
                 
-                if ( rbf == 1 || (isDelete && rbf == 0) ) m_right->rotr( m_right );
-                rotl( inboundPointer );
+                if ( rbf == -1 || (isDelete && rbf == 0) ) rotl( inboundPointer );
+                else if ( rbf == 1 )
+                {
+                    m_right->rotr( m_right );
+                    rotl( inboundPointer );
+                }
+                
                 th = childHeights();
                 throwing_assert( std::abs(th.first - th.second) <= 1, "Node height difference is greater than 1 after rebalancing" );
             }
@@ -208,8 +202,13 @@ namespace balanced
             {
                 auto lth = m_left->childHeights();
                 int lbf = lth.first - lth.second;
-                if ( lbf == -1 || (isDelete && lbf == 0) ) m_left->rotl( m_left );
-                rotr( inboundPointer );
+                
+                if ( lbf == 1 || (isDelete && lbf == 0) ) rotr( inboundPointer );
+                else if ( lbf == -1 )
+                {
+                    m_left->rotl( m_left );
+                    rotr( inboundPointer );
+                }
                 th = childHeights();
                 throwing_assert( std::abs(th.first - th.second) <= 1, "Node height difference is greater than 1 after rebalancing" );
             }
@@ -255,13 +254,14 @@ namespace balanced
         
         void erase( const K& key )
         {
+            //debug();
             if ( m_root->erase( m_root, key ) ) m_size--;
             validate();
         }
         
         size_t size() const { return m_size; }
         
-        void debug() const { if ( m_root != NULL ) m_root->debug(0); }
+        void debug() const { if ( m_root != NULL ) m_root->debug(std::string()); }
         
     private:
         void validate()
@@ -296,12 +296,12 @@ namespace balanced
                     auto rh = th.second;
                     CHECK_EQUAL( (int) head->m_height, std::max( lh, rh ) );
                     
-                    /*auto heightDiff = lh - rh;
+                    auto heightDiff = lh - rh;
                     if ( std::abs( heightDiff ) >= 2 )
                     {
                         std::cerr << "Height difference violation: " << heightDiff << " - " << head->m_value.first << std::endl;
-                    }*/
-                    CHECK( std::abs( lh - rh ) < 2 );
+                    }
+                    //CHECK( std::abs( lh - rh ) < 2 );
                 }
             }
             
