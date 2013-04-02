@@ -10,7 +10,9 @@ object TestBuild extends NativeBuild
         new native.Environment( "debug/Gcc/Linux/PC", baseGcc.copy( compileFlags="-std=c++11 -g -Wall -Wextra" ) )
     )
         
-    val utility = StaticLibrary( id="utility", base=file("./"),
+    val utility = StaticLibrary
+    (
+        id="utility", base=file("./"),
         settings=Seq
         (
             name                := "utility",
@@ -18,7 +20,8 @@ object TestBuild extends NativeBuild
         )
     )
    
-    val datastructures = StaticLibrary2( 
+    val datastructures = StaticLibrary2
+    ( 
         "datastructures", file( "./libraries/datastructures" ),
         Seq
         (
@@ -27,7 +30,8 @@ object TestBuild extends NativeBuild
     )
     
     
-    val functionalcollections = StaticLibrary2(
+    val functionalcollections = StaticLibrary2
+    (
         "functionalcollections", file( "./libraries/functionalcollections" ),
         Seq
         (
@@ -39,7 +43,9 @@ object TestBuild extends NativeBuild
     // Can then do a dependsOn on this and it'll all magically work
     //lazy val navetasScalaLib = uri("ssh://git@github.lan.ise-oxford.com/Navetas/navetasscalalib.git")
     
-    val simple = NativeExecutable2( "simple", file( "./applications/simple" ),
+    val simple = NativeExecutable2
+    (
+        "simple", file( "./applications/simple" ),
         Seq
         (
             includeDirectories  += file( "./libraries/utility/interface" ),
