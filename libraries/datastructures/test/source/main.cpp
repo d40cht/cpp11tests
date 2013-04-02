@@ -214,17 +214,17 @@ void heapTest()
     CHECK( h.empty() );
 }
 
-void unbalancedBSTTest()
+void balancedBSTTest()
 {
-    //std::vector<int> input = { 1, 2, 3, 0 };
     std::vector<int> input = { 4, 1, 2, 3, 6, 1, 5, 3, 7, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10 };
-    
+    //std::vector<int> input = { 4, 1, 2, 3, 6, 8, 8, 0, 0 };
     
     typedef balanced::BST<int, int> bst_t;
     std::set<int> truth;
     bst_t bst;
     for ( int el : input )
     {
+        //std::cerr << "Inserting: " << el << std::endl;
         bst.insert( std::make_pair( el, el ) );
         truth.insert( el );
         
@@ -237,8 +237,12 @@ void unbalancedBSTTest()
     
     for ( int el : input )
     {
+        //std::cerr << "Erasing: " << el << std::endl;
+        //bst.debug();
         bst.erase( el );
         truth.erase( el );
+        //std::cerr << "After" << std::endl;
+        //bst.debug();
         
         CHECK_EQUAL( bst.size(), truth.size() );
     }
@@ -252,7 +256,7 @@ int main( int /*argc*/, char** /*argv*/ )
     hashTest();
     openAddressingHashTest();
     heapTest();
-    unbalancedBSTTest();
+    balancedBSTTest();
     std::cerr << "Complete" << std::endl;
 }
 

@@ -45,8 +45,8 @@ namespace balanced
             m_left = oldLeft->m_right;
             oldLeft->m_right = this;
             parentPointer = oldLeft;
-            updateHeight( false );
-            oldLeft->updateHeight( false );
+            updateHeight();
+            oldLeft->updateHeight();
         }
         
         // Returns true for an insert, false for an overwrite
@@ -65,13 +65,15 @@ namespace balanced
             else if ( element.first < m_value.first )
             {
                 bool insertion = m_left->insert( m_left, element );
-                updateHeight( true );
+                updateHeight();
+                rebalance( parentPointer, false );
                 return insertion;
             }
             else
             {
                 bool insertion = m_right->insert( m_right, element );
-                updateHeight( true );
+                updateHeight();
+                rebalance( parentPointer, false );
                 return insertion;
             }
         }
@@ -83,13 +85,15 @@ namespace balanced
             else if ( key < m_value.first )
             {
                 bool erased = m_left->erase( m_left, key );
-                updateHeight(true);
+                updateHeight();
+                rebalance( parentPointer, true );
                 return erased;
             }
             else if ( key > m_value.first )
             {
                 bool erased = m_right->erase( m_right, key );
-                updateHeight(true);
+                updateHeight();
+                rebalance( parentPointer, true );
                 return erased;
             }
             else
@@ -111,10 +115,10 @@ namespace balanced
                 }
                 else
                 {
-                    // Swap with leftmost value in right subtree, then delete
-                    // that leftmost node (which may have a right-pointer, so
-                    // we need to keep that as appropriate).
-                    self_t** parentPointer = &m_right;
+                    m_value = m_right->eraseSwap( m_right );
+                    updateHeight();
+                    rebalance( parentPointer, true );
+                    /*self_t** parentPointer = &m_right;
                     self_t* iter = m_right;
                     while ( iter->m_left != NULL )
                     {
@@ -123,34 +127,94 @@ namespace balanced
                     }
                     m_value = iter->m_value;
                     (*parentPointer) = iter->m_right;
-                    delete iter;
-                    updateHeight(true);
+                    updateHeight();
+                    rebalance( *parentPointer, true );
+                    delete iter;*/
                 }
                 
                 return true;
             }
         }
+    private:
+        // Swap with leftmost value in right subtree, then delete
+        // that leftmost node (which may have a right-pointer, so
+        // we need to keep that as appropriate).
+        elem_t eraseSwap( self_t*& parentPointer )
+        {
+            if ( m_left != NULL )
+            {
+                auto res = m_left->eraseSwap( m_left );
+                updateHeight();
+                rebalance( parentPointer, true );
+                return res;
+            }
+            else
+            {
+                auto toSwap = m_value;
+                parentPointer = m_right;
+                delete this;
+                
+                return toSwap;
+            }
+        }
+    
+    public:
         
         const elem_t& get() { return m_value; }
         
-    private:
-        void updateHeight( bool balance )
+        void debug( size_t indent ) const
         {
-            size_t lh = m_left == NULL ? 0 : m_left->m_height + 1;
-            size_t rh = m_right == NULL ? 0 : m_right->m_height + 1;
-            m_height = std::max( lh, rh );
+            if ( m_left != NULL ) m_left->debug( indent+1 );
+            for ( size_t i = 0; i < (indent*3); ++i ) std::cerr << " ";
+            std::cerr << m_value.first << std::endl;
             
-            if ( balance )
+            if ( m_right != NULL ) m_right->debug( indent+1 );
+        }
+        
+    private:
+        std::pair<int, int> childHeights()
+        {
+            int lh = m_left == NULL ? 0 : m_left->m_height + 1;
+            int rh = m_right == NULL ? 0 : m_right->m_height + 1;
+            return std::make_pair( lh, rh );
+        }
+        void updateHeight()
+        {
+            auto th = childHeights();
+            auto lh = th.first;
+            auto rh = th.second;
+            m_height = std::max( lh, rh );
+        }
+        
+        void rebalance( self_t*& inboundPointer, bool isDelete )
+        {
+            auto th = childHeights();
+            auto lh = th.first;
+            auto rh = th.second;
+            int balanceFactor = (lh - rh);
+            
+            throwing_assert( std::abs(balanceFactor) <= 2, "Node height difference is greater than 2" );
+            if ( balanceFactor == -2 )
             {
-                int balanceFactor = (lh - rh);
+                auto rth = m_right->childHeights();
+                int rbf = rth.first - rth.second;
                 
-                if ( balanceFactor < -1 )
-                {
-                }
-                else if ( balanceFactor > 1 )
-                {
-                }
+                if ( rbf == 1 || (isDelete && rbf == 0) ) m_right->rotr( m_right );
+                rotl( inboundPointer );
+                th = childHeights();
+                throwing_assert( std::abs(th.first - th.second) <= 1, "Node height difference is greater than 1 after rebalancing" );
             }
+            else if ( balanceFactor == 2 )
+            {
+                auto lth = m_left->childHeights();
+                int lbf = lth.first - lth.second;
+                if ( lbf == -1 || (isDelete && lbf == 0) ) m_left->rotl( m_left );
+                rotr( inboundPointer );
+                th = childHeights();
+                throwing_assert( std::abs(th.first - th.second) <= 1, "Node height difference is greater than 1 after rebalancing" );
+            }
+            
+            
         }
                 
     private:
@@ -197,6 +261,8 @@ namespace balanced
         
         size_t size() const { return m_size; }
         
+        void debug() const { if ( m_root != NULL ) m_root->debug(0); }
+        
     private:
         void validate()
         {
@@ -225,9 +291,17 @@ namespace balanced
                         CHECK( head->m_value.first < head->m_right->m_value.first );
                     }
                     
-                    size_t lh = head->m_left == NULL ? 0 : head->m_left->m_height + 1;
-                    size_t rh = head->m_right == NULL ? 0 : head->m_right->m_height + 1;
-                    CHECK_EQUAL( head->m_height, std::max( lh, rh ) );
+                    auto th = head->childHeights();
+                    auto lh = th.first;
+                    auto rh = th.second;
+                    CHECK_EQUAL( (int) head->m_height, std::max( lh, rh ) );
+                    
+                    /*auto heightDiff = lh - rh;
+                    if ( std::abs( heightDiff ) >= 2 )
+                    {
+                        std::cerr << "Height difference violation: " << heightDiff << " - " << head->m_value.first << std::endl;
+                    }*/
+                    CHECK( std::abs( lh - rh ) < 2 );
                 }
             }
             
