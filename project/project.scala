@@ -17,31 +17,14 @@ object TestBuild extends NativeBuild
     val datastructures = StaticLibrary( "datastructures", file( "./libraries/datastructures" ), Seq() )
         .nativeDependsOn( utility )
         .register()
-        
-    val datastructuresTest = NativeTest("datastructures_test", file("./libraries/datastructures/test" ), Seq() )
-        .nativeDependsOn( datastructures )
-        .nativeDependsOn( utility )
-        .register()
     
     val functionalcollections = StaticLibrary( "functionalcollections", file( "./libraries/functionalcollections" ), Seq() )
-        .nativeDependsOn( utility )
-        .register()
-        
-    val functionalcollectionsTest = NativeTest("functionalcollections_test", file("./libraries/functionalcollections/test" ), Seq() )
-        .nativeDependsOn( functionalcollections )
         .nativeDependsOn( utility )
         .register()
    
     val simple = NativeExecutable( "simple", file( "./applications/simple" ), Seq() )
         .nativeDependsOn( utility )
         .register()
-    
-    // Since preventing the import of scala default settings, there is no compile on a raw nativeproject and so aggregate is a bit useless
-    //val all = Project( id="all", base=file(".") )
-    //    .nativeDependsOn( functionalcollectionsTest )
-    //    .register()
-    
-    
 }
 
 
