@@ -11,48 +11,35 @@ object TestBuild extends NativeBuild
         new Environment( "debug/Gcc/Linux/PC", baseGcc.copy( compileFlags="-std=c++11 -g -Wall -Wextra" ) )
     )
         
-    val utility = StaticLibrary(
-        id="utility", base=file("./"),
-        settings=Seq
-        (
-            name                := "utility",
-            projectDirectory    := file( "./libraries/utility" )
-        )
-    )
+    val utility = StaticLibrary( "utility", file( "./libraries/utility" ), Seq() )
+        .register()
    
-    val datastructures = StaticLibrary2( 
-        "datastructures", file( "./libraries/datastructures" ),
-        Seq
-        (
-            includeDirectories  += file( "./libraries/utility/interface" )
-        )
-    )
+    val datastructures = StaticLibrary( "datastructures", file( "./libraries/datastructures" ), Seq() )
+        .nativeDependsOn( utility )
+        .register()
+        
+    val datastructuresTest = NativeTest("datastructures_test", file("./libraries/datastructures/test" ), Seq() )
+        .nativeDependsOn( datastructures )
+        .nativeDependsOn( utility )
+        .register()
     
-    
-    val functionalcollections = StaticLibrary2(
-        "functionalcollections", file( "./libraries/functionalcollections" ),
-        Seq
-        (
-            includeDirectories  += file( "./libraries/utility/interface" )
-        )
-    )
-    
-    
-    // Can then do a dependsOn on this and it'll all magically work
-    //lazy val navetasScalaLib = uri("ssh://git@github.lan.ise-oxford.com/Navetas/navetasscalalib.git")
-    
-    val simple = NativeExecutable2(
-        "simple", file( "./applications/simple" ),
-        Seq
-        (
-            includeDirectories  += file( "./libraries/utility/interface" ),
-            objectFiles         <+= (nativeCompile in utility)
-            //linkerInputs <+= (staticLibrary in utility)
-        )
-    )
+    val functionalcollections = StaticLibrary( "functionalcollections", file( "./libraries/functionalcollections" ), Seq() )
+        .nativeDependsOn( utility )
+        .register()
+        
+    val functionalcollectionsTest = NativeTest("functionalcollections_test", file("./libraries/functionalcollections/test" ), Seq() )
+        .nativeDependsOn( functionalcollections )
+        .nativeDependsOn( utility )
+        .register()
+   
+    val simple = NativeExecutable( "simple", file( "./applications/simple" ), Seq() )
+        .nativeDependsOn( utility )
+        .register()
     
     // Since preventing the import of scala default settings, there is no compile on a raw nativeproject and so aggregate is a bit useless
-    val all = NativeProject( id="all", base=file("."), settings=Seq( projectDirectory := file(".") ) ).aggregate( utility, datastructures, functionalcollections, simple )
+    //val all = Project( id="all", base=file(".") )
+    //    .nativeDependsOn( functionalcollectionsTest )
+    //    .register()
     
     
 }
