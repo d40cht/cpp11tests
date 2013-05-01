@@ -5,6 +5,25 @@
 #include <utility>
 #include <vector>
 
+/*
+    Memory ordering:
+    
+    (afaik, these affect in-thread re-ordering as a result of optimisations - and how the consequent writes are visible to other threads).
+    
+    - memory_order_relaxed 	Relaxed ordering: there are no synchronization or ordering constraints, only atomicity is required of this operation.
+    
+    - memory_order_consume 	A load operation with this memory order performs a consume operation on the affected memory location: prior writes to data-dependent memory locations made by the thread that did a release operation become visible to this thread.
+    
+    - memory_order_acquire 	A load operation with this memory order performs the acquire operation on the affected memory location: prior writes made to other memory locations by the thread that did the release become visible in this thread.
+    
+    - memory_order_release 	A store operation with this memory order performs the release operation: prior writes to other memory locations become visible to the threads that do a consume or an acquire on the same location.
+    
+    - memory_order_acq_rel 	A load operation with this memory order performs the acquire operation on the affected memory location and a store operation with this memory order performs the release operation.
+    
+    - memory_order_seq_cst 	Same as memory_order_acq_rel, and a single total order exists in which all threads observe all modifications (see below) 
+ 
+*/
+
 void atomicTest()
 {
     std::atomic<int> a1 = {0};
@@ -108,14 +127,16 @@ void packagedTaskTest()
     foo.join();
 }
 
+#define RUN_TEST( name ) std::cout << "Running: " << #name << std::endl; name();
+
 int main( int /*argc*/, char** /*argv*/ )
 {
     std::cerr << "Running concurrency tests" << std::endl;
-    promiseFutureTest();
-    packagedTaskTest();
-    callOnceTest();
-    atomicTest();
-    mutexTest();
+    RUN_TEST( promiseFutureTest );
+    RUN_TEST( packagedTaskTest );
+    RUN_TEST( callOnceTest );
+    RUN_TEST( atomicTest );
+    RUN_TEST( mutexTest );
     std::cerr << "Complete" << std::endl;
 }
 
