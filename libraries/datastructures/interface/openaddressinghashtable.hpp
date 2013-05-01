@@ -27,7 +27,7 @@ private:
             auto h = bi( el.first );
             
             // Either we've found the key, or we're no longer on this hash
-            if ( (el.first == k) ) return i;
+            if ( el.first == k ) return i;
             else if ( h != oh ) return invalidIndex;
             
             inc(i);

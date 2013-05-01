@@ -153,8 +153,8 @@ namespace balanced
         void debug( std::string indent ) const
         {
             std::cerr << indent << m_value.first << std::endl;
-            std::string newIndent;
-            for ( char c : indent ) newIndent.push_back(' ');
+            std::string newIndent( indent );
+
             if ( m_left != NULL ) m_left->debug( newIndent + "l->" );
             if ( m_right != NULL ) m_right->debug( newIndent + "r->" );
         }
